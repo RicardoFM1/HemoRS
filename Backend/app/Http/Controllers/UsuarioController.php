@@ -31,7 +31,7 @@ class UsuarioController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
-            $usuario['senha'] = Hash::make($request->only('senha'));
+            $usuario['senha'] = Hash::make($request->input('senha'));
             $usuario = Usuario::create($dadosValidados);
 
             return response()->json([
@@ -60,7 +60,7 @@ class UsuarioController extends Controller
             ], 401);
         }
 
-        $senhaCorreta = Hash::check($request->only('senha'), $usuario->senha);
+        $senhaCorreta = Hash::check($request->input('senha'), $usuario->senha);
 
         if(!$senhaCorreta){
             return response()->json([
