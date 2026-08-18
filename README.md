@@ -31,4 +31,4 @@ e se mandar em uma doação que já está coletada? Não muda nada.
 
 6. A listagem recebe ?ordem=alguma_coisa_estranha. O que acontece com a query?
 
-- O banco de dados não recebe por conta do lumen não deixar e ser seguro.
+- No método de filtrar as buscas há uma "limite" estipulado pelo código, onde apenas o que está dentro de um array pode ser enviado como query param, outras coisas não entrar e são recusadas.
