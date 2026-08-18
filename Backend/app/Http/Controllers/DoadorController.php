@@ -15,7 +15,7 @@ class DoadorController extends Controller
 
     public function listarDoadores()
     {
-        $doadores = Doador::all();
+        $doadores = Doador::with('doacao')->get();
 
 
         return response()->json([
@@ -25,7 +25,7 @@ class DoadorController extends Controller
     }
 
     public function buscarDoador($doadorId){
-        $doador = Doador::find($doadorId);
+        $doador = Doador::with('doacao')->find($doadorId);
 
         if(is_null($doador)){
             return response()->json([
@@ -106,6 +106,7 @@ class DoadorController extends Controller
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador atualizado com sucesso'
+            
             ], 200);
         } catch (QueryException $e) {
             if (str_contains($e->getMessage(), 'email')) {
