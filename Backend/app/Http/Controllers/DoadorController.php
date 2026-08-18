@@ -15,14 +15,62 @@ use Laravel\Lumen\Routing\Controller;
 class DoadorController extends Controller
 {
 
-    public function listarDoadores()
+    public function listarDoadores(Request $request)
     {
-        $doadores = Doador::with('doacao')->get();
+        $query = Doador::query()->with('doacao');
 
+        $busca = trim((string) $request->input('busca', ''));
+        $tipoSanguineo = $request->input('tipo_sanguineo');
+        $status = $request->input('status');
+        $unidadeId = $request->input('unidade_id');
+        $dataInicio = $request->input('data_inicio', $request->input('periodo_inicio'));
+        $dataFim = $request->input('data_fim', $request->input('periodo_fim'));
+        $ordenar = $request->input('ordenar', 'id');
+        $direcao = strtolower((string) $request->input('direcao', 'desc'));
+        $porPagina = (int) $request->input('por_pagina', 15);
+        $porPagina = min(max($porPagina, 1), 100);
+
+        $camposPermitidos = ['id', 'nome', 'cpf', 'data_de_nascimento', 'sexo', 'tipo_sanguineo', 'status'];
+        if (!in_array($ordenar, $camposPermitidos, true)) {
+            $ordenar = 'id';
+        }
+
+        if ($busca !== '') {
+            $query->where(function ($q) use ($busca) {
+                $q->where('nome', 'like', "%{$busca}%")
+                    ->orWhere('cpf', 'like', "%{$busca}%");
+            });
+        }
+
+        if (!empty($tipoSanguineo)) {
+            $query->where('tipo_sanguineo', $tipoSanguineo);
+        }
+
+        if (!empty($status)) {
+            $query->where('status', $status);
+        }
+
+        if (!empty($unidadeId)) {
+            $query->whereHas('doacao', function ($q) use ($unidadeId) {
+                $q->where('unidade_id', $unidadeId);
+            });
+        }
+
+        if (!empty($dataInicio) || !empty($dataFim)) {
+            $inicio = !empty($dataInicio) ? $dataInicio : '1900-01-01';
+            $fim = !empty($dataFim) ? $dataFim : date('Y-m-d');
+            $query->whereBetween('data_de_nascimento', [$inicio, $fim]);
+        }
+
+        $paginate = $query->orderBy($ordenar, $direcao === 'asc' ? 'asc' : 'desc')
+            ->paginate($porPagina);
 
         return response()->json([
             'sucesso' => true,
-            'dados' => $doadores
+            'dados' => $paginate->items(),
+            'pagina' => $paginate->currentPage(),
+            'por_pagina' => $paginate->perPage(),
+            'total' => $paginate->total()
         ], 200);
     }
 

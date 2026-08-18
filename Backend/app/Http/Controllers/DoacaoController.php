@@ -26,14 +26,63 @@ use Laravel\Lumen\Routing\Controller;
 class DoacaoController extends Controller
 {
 
-    public function listarDoacoes()
+    public function listarDoacoes(Request $request)
     {
-        $doacoes = Doacao::with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa')->get();
+        $query = Doacao::query()->with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa');
 
+        $busca = trim((string) $request->input('busca', ''));
+        $tipoSanguineo = $request->input('tipo_sanguineo');
+        $status = $request->input('status');
+        $unidadeId = $request->input('unidade_id');
+        $dataInicio = $request->input('data_inicio', $request->input('periodo_inicio'));
+        $dataFim = $request->input('data_fim', $request->input('periodo_fim'));
+
+        $ordenar = $request->input('ordenar', 'id');
+        $direcao = strtolower((string) $request->input('direcao', 'desc'));
+        $porPagina = (int) $request->input('por_pagina', 15);
+        $porPagina = min(max($porPagina, 1), 100);
+
+        $ordenacaoPermitida = ['id', 'doador_id', 'unidade_id', 'usuario_id', 'status', 'data_e_hora_agendada', 'coletado_em'];
+        if (!in_array($ordenar, $ordenacaoPermitida, true)) {
+            $ordenar = 'id';
+        }
+
+        if ($busca !== '') {
+            $query->whereHas('doador', function ($q) use ($busca) {
+                $q->where('nome', 'like', "%{$busca}%")
+                    ->orWhere('cpf', 'like', "%{$busca}%");
+            });
+        }
+
+        if (!empty($tipoSanguineo)) {
+            $query->whereHas('doador', function ($q) use ($tipoSanguineo) {
+                $q->where('tipo_sanguineo', $tipoSanguineo);
+            });
+        }
+
+        if (!empty($status)) {
+            $query->where('status', $status);
+        }
+
+        if (!empty($unidadeId)) {
+            $query->where('unidade_id', $unidadeId);
+        }
+
+        if (!empty($dataInicio) || !empty($dataFim)) {
+            $inicio = !empty($dataInicio) ? $dataInicio : '1900-01-01 00:00:00';
+            $fim = !empty($dataFim) ? $dataFim : date('Y-m-d H:i:s');
+            $query->whereBetween('data_e_hora_agendada', [$inicio, $fim]);
+        }
+
+        $paginated = $query->orderBy($ordenar, $direcao === 'asc' ? 'asc' : 'desc')
+            ->paginate($porPagina);
 
         return response()->json([
             'sucesso' => true,
-            'dados' => $doacoes
+            'dados' => $paginated->items(),
+            'pagina' => $paginated->currentPage(),
+            'por_pagina' => $paginated->perPage(),
+            'total' => $paginated->total()
         ], 200);
     }
 
@@ -73,11 +122,60 @@ class DoacaoController extends Controller
         ]);
     }
 
+    private function validarIntervaloEQuantidadeDoacoes(int $doadorId): ?string
+    {
+        $doador = Doador::find($doadorId);
+
+        if (is_null($doador)) {
+            return 'Doador não encontrado';
+        }
+
+        $sexo = strtolower((string) $doador->sexo);
+        $intervaloMinimoDias = $sexo === 'feminino' ? 90 : 60;
+
+        $ultimaColeta = Doacao::where('doador_id', $doadorId)
+            ->where('status', 'coletada')
+            ->whereNotNull('coletado_em')
+            ->orderByDesc('coletado_em')
+            ->first();
+
+        if (!is_null($ultimaColeta) && !is_null($ultimaColeta->coletado_em)) {
+            $diasDesdeUltimaColeta = Carbon::now()->diffInDays(Carbon::parse($ultimaColeta->coletado_em));
+
+            if ($diasDesdeUltimaColeta < $intervaloMinimoDias) {
+                return 'Intervalo mínimo entre doações não atendido. Mínimo de ' . $intervaloMinimoDias . ' dias desde a última coleta.';
+            }
+        }
+
+        $inicioUltimos12Meses = Carbon::now()->subYear();
+        $quantidadeUltimos12Meses = Doacao::where('doador_id', $doadorId)
+            ->where('status', 'coletada')
+            ->whereNotNull('coletado_em')
+            ->where('coletado_em', '>=', $inicioUltimos12Meses->toDateTimeString())
+            ->count();
+
+        $maximoDoacoes = $sexo === 'feminino' ? 3 : 4;
+
+        if ($quantidadeUltimos12Meses >= $maximoDoacoes) {
+            return 'O doador atingiu o limite de ' . $maximoDoacoes . ' doações coletadas nos últimos 12 meses.';
+        }
+
+        return null;
+    }
+
     public function agendarDoacao(Request $request, DoacaoValidator $validador)
     {
         try {
 
             $dadosValidados = $validador->validate($request);
+
+            $erroRegra = $this->validarIntervaloEQuantidadeDoacoes((int) $dadosValidados['doador_id']);
+            if (!is_null($erroRegra)) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => $erroRegra
+                ], 422);
+            }
 
             $data = date('Y-m-d H:i:s');
 
