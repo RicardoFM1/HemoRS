@@ -4,14 +4,14 @@ namespace App\Http\Middleware;
 
 use Closure;
 
-class ApenasGestor
+class CheckRole
 {
-    
-    public function handle($request, Closure $next)
+
+    public function handle($request, Closure $next, ...$roles)
     {
         $usuario = $request->auth;
 
-        if($usuario['perfil'] !== 'gestor'){
+        if (!$usuario || !in_array($usuario['perfil'], $roles)) {
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Usuário sem permissão'

@@ -27,6 +27,7 @@ class DoadorValidator
             'sexo' => 'required|in:masculino,feminino,outros',
             'tipo_sanguineo' => 'required|in:A+,A-,B+,B-,AB+,AB-,O+,O-',
             'telefone' => 'required|max:20',
+            'data_de_nascimento' => 'required',
             'email' => 'required|email|max:255',
             'status' => 'required|in:ativo,inativo'
         ];
@@ -40,6 +41,7 @@ class DoadorValidator
             'email.email' => 'Email inválido',
             'cpf.required' => 'CPF é obrigatório',
             'cpf.cpf' => 'CPF inválido',
+            'data_de_nascimento.required' => 'Data de nascimento é obrigatório',
             'sexo.required' => 'Sexo é obrigatório',
             'sexo.in' => 'Sexo fora do escopo: masculino, feminino e outros',
             'tipo_sanguineo.required' => 'Tipo sanguíneo é obrigatório',

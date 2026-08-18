@@ -78,7 +78,7 @@ $app->configure('app');
 
 $app->routeMiddleware([
     'auth' => App\Http\Middleware\Auth::class,
-    'apenasGestor' => App\Http\Middleware\ApenasGestor::class
+    'role' => App\Http\Middleware\CheckRole::class
 ]);
 
 /*

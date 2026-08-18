@@ -5,8 +5,8 @@
 
 $router->group(['prefix' => '/usuarios'], function () use ($router) {
 
-    $router->get('/', ['middleware' => ['auth', 'apenasGestor'], 'uses' => 'UsuarioController@listarUsuarios']);
-    $router->post('/', ['middleware' => ['auth', 'apenasGestor'], 'uses' => 'UsuarioController@criarUsuario']);
+    $router->get('/', ['middleware' => ['auth', 'role:gestor'], 'uses' => 'UsuarioController@listarUsuarios']);
+    $router->post('/', ['middleware' => ['auth', 'role:gestor'], 'uses' => 'UsuarioController@criarUsuario']);
 });
 
 $router->post('/auth/login', 'UsuarioController@fazerLogin');

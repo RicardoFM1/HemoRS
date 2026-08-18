@@ -31,7 +31,8 @@ class UsuarioController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
-            $usuario['senha'] = Hash::make($request->input('senha'));
+            $dadosValidados['senha'] = Hash::make($dadosValidados['senha']);
+
             $usuario = Usuario::create($dadosValidados);
 
             return response()->json([
@@ -45,7 +46,13 @@ class UsuarioController extends Controller
                     'sucesso' => false,
                     'mensagem' => 'Email já em uso'
                 ], 409);
-            }
+
+                }
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Erro ao criar usuario',
+                'erro' => $e->getMessage()
+                ], 500);
         }
     }
 
