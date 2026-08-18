@@ -81,10 +81,10 @@ class DoacaoController extends Controller
 
             $unidade = Unidade::find($dadosValidados['unidade_id']);
 
-            $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status','coletada')->count();
+            $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status', 'coletada')->count();
 
-         
-            if($doacoesNaUnidade >= $unidade->capacidade_diaria){
+
+            if ($doacoesNaUnidade >= $unidade->capacidade_diaria) {
                 return response()->json([
                     'sucesso' => true,
                     'mensagem' => 'Capacidade máxima diária atingida na unidade'
@@ -97,7 +97,7 @@ class DoacaoController extends Controller
                 'sucesso' => true,
                 'mensagem' => 'Doação criada com sucesso',
                 'dados' => $doacao,
-                
+
             ], 201);
         } catch (QueryException $e) {
 
@@ -127,6 +127,23 @@ class DoacaoController extends Controller
             $dadosValidados = $validador->validate($request);
             $dadosValidados['status'] = 'triagem';
 
+
+            if (
+                $dadosValidados['peso'] < 50 &&
+                (
+                    ($dadosValidados['sexo'] === 'feminino' && $dadosValidados['hemoglobina'] < 12.5) ||
+                    ($dadosValidados['sexo'] === 'masculino' && $dadosValidados['hemoglobina'] < 13)
+                )
+            ) {
+                $doacao->update([
+                    'status' => 'recusada',
+                    'motivo_da_recusa' => 'Hemoglobina e/ou peso muito abaixo do esperado'
+                ]);
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Triagem não aprovada, devido a: peso abaixo ou hemoglobina muito baixa'
+                ]);
+            }
 
             if ($doacao->status === 'coletada' || $doacao->status === 'cancelada' || $doacao->status === 'recusada') {
                 return response()->json([
@@ -169,7 +186,12 @@ class DoacaoController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
-
+            if($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] <= 500){
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'O volume coletado precisa estar entre 400ml e 500ml'
+                ], 409);
+            }
 
             $doacao->update($dadosValidados);
 
