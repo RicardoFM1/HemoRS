@@ -12,3 +12,5 @@ require_once __DIR__ . "/Doador.php";
 require_once __DIR__ . "/Doacao.php";
 
 require_once __DIR__ . "/Bolsa.php";
+
+require_once __DIR__ . "/Relatorio.php";

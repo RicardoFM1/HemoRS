@@ -9,11 +9,13 @@ use App\Http\Validators\DoacaoValidatorTriagem;
 use App\Http\Validators\DoadorValidator;
 use App\Models\Bolsa;
 use App\Models\Doacao;
+use App\Models\Doacao_Historico;
 use App\Models\DoacaoCancela;
 use App\Models\DoacaoColeta;
 use App\Models\DoacaoTriagem;
 use App\Models\Doador;
 use App\Models\Unidade;
+use Carbon\Carbon;
 use DateTime;
 use Firebase\JWT\JWT;
 use Illuminate\Database\QueryException;
@@ -83,9 +85,23 @@ class DoacaoController extends Controller
 
             $unidade = Unidade::find($dadosValidados['unidade_id']);
 
+            if(is_null($unidade)){
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Unidade não encontrada'
+                ], 404);
+            }
+
             $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status', 'coletada')->count();
 
             $doador = Doador::find($request->input('doador_id'));
+
+            if(is_null($doador)){
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Doador não encontrado'
+                ], 404);
+            }
 
             if ($doador->status === 'inativo') {
                 return response()->json([
@@ -98,12 +114,20 @@ class DoacaoController extends Controller
                 return response()->json([
                     'sucesso' => true,
                     'mensagem' => 'Capacidade máxima diária atingida na unidade'
-                ]);
+                ], 409);
             }
 
 
-
+            $usuario = $request->auth;
             $doacao = Doacao::create($dadosValidados);
+            Doacao_Historico::create([
+                'doacao_id' => $doacao->id,
+                'status_de_origem' => 'Agendamento de doação',
+                'status_de_destino' => 'Triagem de doação',
+                'usuario_id' => $usuario['id'],
+                'motivo' => 'Agendamento de uma doação de um doador',
+                'data_e_hora' => Carbon::now('America/Sao_Paulo')
+            ]);
 
             return response()->json([
                 'sucesso' => true,
@@ -164,9 +188,17 @@ class DoacaoController extends Controller
                 ], 409);
             }
 
+            $usuario = $request->auth;
 
             $doacao->update($dadosValidados);
-
+            Doacao_Historico::create([
+                'doacao_id' => $doacao->id,
+                'status_de_origem' => 'Triagem de doação',
+                'status_de_destino' => 'Coleta da doação',
+                'usuario_id' => $usuario['id'],
+                'motivo' => 'Triagem de uma doação de um doador',
+                'data_e_hora' => date('Y-m-d H:i:s')
+            ]);
 
             return response()->json([
                 'sucesso' => true,
@@ -226,6 +258,16 @@ class DoacaoController extends Controller
                 'vence_em' => $venceEm,
                 'status' => 'disponivel'
             ]);
+            $usuario = $request->auth;
+
+            Doacao_Historico::create([
+                'doacao_id' => $doacao->id,
+                'status_de_origem' => 'Coleta de doação',
+                'status_de_destino' => 'Disponibilização para o recebedor',
+                'usuario_id' => $usuario['id'],
+                'motivo' => 'Coleta de uma doação de um doador',
+                'data_e_hora' => date('Y-m-d H:i:s')
+            ]);
 
             return response()->json([
                 'sucesso' => true,
@@ -262,7 +304,16 @@ class DoacaoController extends Controller
 
 
             $doacao->update(['status' => 'cancelada']);
+            $usuario = $request->auth;
 
+            Doacao_Historico::create([
+                'doacao_id' => $doacao->id,
+                'status_de_origem' => 'Cancelamento de doação',
+                'status_de_destino' => 'Histórico no sistema',
+                'usuario_id' => $usuario['id'],
+                'motivo' => $request->input('motivo_da_recusa') ?? 'Cancelamento sem motivo prévio',
+                'data_e_hora' => date('Y-m-d H:i:s')
+            ]);
 
             return response()->json([
                 'sucesso' => true,
