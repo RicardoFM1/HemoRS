@@ -13,6 +13,7 @@ use App\Models\DoacaoCancela;
 use App\Models\DoacaoColeta;
 use App\Models\DoacaoTriagem;
 use App\Models\Doador;
+use App\Models\Unidade;
 use DateTime;
 use Firebase\JWT\JWT;
 use Illuminate\Database\QueryException;
@@ -78,12 +79,25 @@ class DoacaoController extends Controller
 
             $dadosValidados['data_e_hora_agendada'] = $data;
 
+            $unidade = Unidade::find($dadosValidados['unidade_id']);
+
+            $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status','coletada')->count();
+
+         
+            if($doacoesNaUnidade >= $unidade->capacidade_diaria){
+                return response()->json([
+                    'sucesso' => true,
+                    'mensagem' => 'Capacidade máxima diária atingida na unidade'
+                ]);
+            }
+
             $doacao = Doacao::create($dadosValidados);
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doação criada com sucesso',
-                'dados' => $doacao
+                'dados' => $doacao,
+                
             ], 201);
         } catch (QueryException $e) {
 
@@ -112,6 +126,14 @@ class DoacaoController extends Controller
 
             $dadosValidados = $validador->validate($request);
             $dadosValidados['status'] = 'triagem';
+
+
+            if ($doacao->status === 'coletada' || $doacao->status === 'cancelada' || $doacao->status === 'recusada') {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Não é possível alterar uma doação coleta, cancelada ou recusada'
+                ], 409);
+            }
 
 
             $doacao->update($dadosValidados);
@@ -201,7 +223,7 @@ class DoacaoController extends Controller
                 ], 404);
             }
 
-            
+
 
 
 
