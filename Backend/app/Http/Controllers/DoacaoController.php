@@ -93,7 +93,6 @@ class DoacaoController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao criar doação',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -129,7 +128,6 @@ class DoacaoController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao realizar triagem da doação',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -184,7 +182,6 @@ class DoacaoController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao realizar coleta da doação',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -222,7 +219,6 @@ class DoacaoController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao realizar cancelamento da doação',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }

@@ -87,7 +87,6 @@ class BolsaController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao realizar reserva da bolsa',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -113,7 +112,6 @@ class BolsaController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao realizar expurgo da bolsa',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }

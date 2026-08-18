@@ -57,7 +57,6 @@ class UnidadeController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao criar unidade',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -92,7 +91,6 @@ class UnidadeController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao atualizar unidade',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -120,7 +118,6 @@ class UnidadeController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao deletar unidade',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }

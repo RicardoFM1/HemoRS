@@ -53,7 +53,7 @@ class UsuarioController extends Controller
                 'dados' => $usuario
             ], 201);
         } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'email')) {
+            if (str_contains($e->getMessage(), 'email_UNIQUE')) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Email já em uso'
@@ -63,7 +63,6 @@ class UsuarioController extends Controller
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Erro ao criar usuario',
-                'erro' => $e->getMessage()
                 ], 500);
         }
     }
@@ -137,7 +136,6 @@ class UsuarioController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao atualizar usuário',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -165,7 +163,6 @@ class UsuarioController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao deletar usuário',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }

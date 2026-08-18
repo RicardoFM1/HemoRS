@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Validators\DoadorValidator;
 use App\Models\Doador;
+use Carbon\Carbon;
 use Firebase\JWT\JWT;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -17,17 +18,18 @@ class DoadorController extends Controller
     {
         $doadores = Doador::with('doacao')->get();
 
-
+       
         return response()->json([
             'sucesso' => true,
             'dados' => $doadores
         ], 200);
     }
 
-    public function buscarDoador($doadorId){
+    public function buscarDoador($doadorId)
+    {
         $doador = Doador::with('doacao')->find($doadorId);
 
-        if(is_null($doador)){
+        if (is_null($doador)) {
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Doador não encontrado'
@@ -49,25 +51,39 @@ class DoadorController extends Controller
             $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf']);
             $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone']);
 
+            $dataHoje = Carbon::now();
+            $dataNascimento = $request->input('data_de_nascimento');
 
-            $doador = Doador::create($dadosValidados);
+            $idade = $dataHoje->diffInYears(Carbon::parse($dataNascimento));
 
-            return response()->json([
-                'sucesso' => true,
-                'mensagem' => 'Doador criado com sucesso',
-                'dados' => $doador
-            ], 201);
 
-        } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'email')) {
+            if($idade < 16 || $idade > 69){
                 return response()->json([
                     'sucesso' => false,
-                    'mensagem' => 'Email já em uso',
-                    'erro' => $e->getMessage()
+                    'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
                 ], 409);
             }
 
-            if (str_contains($e->getMessage(), 'cpf')) {
+
+
+            $doador = Doador::create($dadosValidados);
+            
+            return response()->json([
+                'sucesso' => true,
+                'mensagem' => 'Doador criado com sucesso',
+                'dados' => array_merge($doador->toArray(), ['idade' => $idade])
+                    
+            ], 201);
+        } catch (QueryException $e) {
+            if (str_contains($e->getMessage(), 'email_UNIQUE')) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Email já em uso',
+
+                ], 409);
+            }
+
+            if (str_contains($e->getMessage(), 'cpf_UNIQUE')) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'CPF já em uso'
@@ -77,7 +93,6 @@ class DoadorController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao criar doador',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
@@ -106,17 +121,17 @@ class DoadorController extends Controller
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador atualizado com sucesso'
-            
+
             ], 200);
         } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'email')) {
+            if (str_contains($e->getMessage(), 'email_UNIQUE')) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Email já em uso'
                 ], 409);
             }
 
-            if (str_contains($e->getMessage(), 'cpf')) {
+            if (str_contains($e->getMessage(), 'cpf_UNIQUE')) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'CPF já em uso'
@@ -126,16 +141,16 @@ class DoadorController extends Controller
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao atualizar doador',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
 
-    public function deletarDoador ($doadorId){
-        try{
+    public function deletarDoador($doadorId)
+    {
+        try {
             $doador = Doador::find($doadorId);
 
-            if(is_null($doador)){
+            if (is_null($doador)) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Doador não encontrado'
@@ -149,11 +164,10 @@ class DoadorController extends Controller
                 'sucesso' => true,
                 'mensagem' => 'Doador deletado com sucesso'
             ], 200);
-        }catch(QueryException $e){
+        } catch (QueryException $e) {
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao deletar doador',
-                'erro' => $e->getMessage()
             ], 500);
         }
     }
