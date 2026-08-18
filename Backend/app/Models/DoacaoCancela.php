@@ -5,7 +5,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class DoacaoColeta extends Model
+class DoacaoCancela extends Model
 {
     protected $table = 'doacao';
     protected $primaryKey = 'id';

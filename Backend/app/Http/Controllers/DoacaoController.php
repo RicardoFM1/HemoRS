@@ -9,6 +9,9 @@ use App\Http\Validators\DoacaoValidatorTriagem;
 use App\Http\Validators\DoadorValidator;
 use App\Models\Bolsa;
 use App\Models\Doacao;
+use App\Models\DoacaoCancela;
+use App\Models\DoacaoColeta;
+use App\Models\DoacaoTriagem;
 use App\Models\Doador;
 use DateTime;
 use Firebase\JWT\JWT;
@@ -99,7 +102,7 @@ class DoacaoController extends Controller
     {
         try {
 
-            $doacao = Doacao::find($doacaoId);
+            $doacao = DoacaoTriagem::find($doacaoId);
 
             if (is_null($doacao)) {
                 return response()->json([
@@ -109,7 +112,7 @@ class DoacaoController extends Controller
             }
 
             $dadosValidados = $validador->validate($request);
-
+            $dadosValidados['status'] = 'triagem';
 
 
             $doacao->update($dadosValidados);
@@ -135,7 +138,7 @@ class DoacaoController extends Controller
     {
         try {
 
-            $doacao = Doacao::with('doador')->find($doacaoId);
+            $doacao = DoacaoColeta::with('doador')->find($doacaoId);
 
             if (is_null($doacao)) {
                 return response()->json([
@@ -192,7 +195,7 @@ class DoacaoController extends Controller
     {
         try {
 
-            $doacao = Doacao::find($doacaoId);
+            $doacao = DoacaoCancela::find($doacaoId);
 
             if (is_null($doacao)) {
                 return response()->json([
@@ -201,11 +204,11 @@ class DoacaoController extends Controller
                 ], 404);
             }
 
-            $dadosValidados = $validador->validate($request);
+            
 
 
 
-            $doacao->update($dadosValidados);
+            $doacao->update(['status' => 'cancelada']);
 
 
             return response()->json([

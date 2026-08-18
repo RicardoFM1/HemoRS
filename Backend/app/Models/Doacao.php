@@ -16,6 +16,12 @@ class Doacao extends Model
         'doador_id',
         'unidade_id',
         'data_e_hora_agendada',
+        'status',
+        'peso',
+        'hemoglobina',
+        'motivo_da_recusa',
+        'volume_coletado',
+        'coletado_em',
         'usuario_id'
     ];
 

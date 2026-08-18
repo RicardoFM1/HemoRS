@@ -22,7 +22,7 @@ class DoacaoValidatorTriagem
     protected function rules(): array
     {
         return [
-            'status' => 'required|in:agendada,triagem,cancelada,coletada,recusada',
+           
             'peso' => 'required|integer',
             'hemoglobina' => 'required|integer',
         ];
@@ -31,10 +31,8 @@ class DoacaoValidatorTriagem
     protected function messages(): array
     {
         return [
-            'status.required' => 'Status é obrigatório',
             'peso.required' => 'Peso é obrigatório',
             'hemoglobina.required' => 'Hemoglobina é obrigatória',
-            'status.in' => 'Status fora do escopo: agendada, triagem, cancelada, coletada, recusada',
             'peso.integer' => 'Peso deve ser um número inteiro',
             'hemoglobina.integer' => 'Hemoglobina deve ser um número inteiro',
 

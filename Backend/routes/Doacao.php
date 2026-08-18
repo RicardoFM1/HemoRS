@@ -9,6 +9,6 @@ $router->group(['prefix' => '/doacoes'], function () use ($router) {
     $router->post('/', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'DoacaoController@agendarDoacao']);
     $router->patch('/{doacaoId}/triagem', ['middleware' => ['auth', 'role:enfermagem,gestor'], 'uses' => 'DoacaoController@triagem']);
     $router->patch('/{doacaoId}/coleta', ['middleware' => ['auth', 'role:enfermagem,gestor'], 'uses' => 'DoacaoController@coleta']);
-    $router->patch('/{doacaoId}/cancelamento', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'DoacaoController@cancelar']);
+    $router->patch('/{doacaoId}/cancelamento', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'DoacaoController@cancela']);
     $router->get('/{doacaoId}/historico', ['middleware' => 'auth', 'uses' => 'DoacaoController@historico']);
 });
