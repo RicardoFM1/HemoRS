@@ -4,8 +4,8 @@
 
 
 $router->group(['prefix' => '/unidades'], function () use ($router) {
-    $router->get('/', 'UnidadeController@listarUnidades');
-    $router->get('/{unidadeId}', 'UnidadeController@buscarUnidade');
+    $router->get('/', ['middleware' => 'auth', 'uses' => 'UnidadeController@listarUnidades']);
+    $router->get('/{unidadeId}', ['middleware' => 'auth', 'uses' => 'UnidadeController@buscarUnidade']);
     $router->post('/', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'UnidadeController@criarUnidade']);
     $router->patch('/{unidadeId}', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'UnidadeController@atualizarUnidade']);
     $router->delete('/{unidadeId}', ['middleware' => ['auth', 'role:gestor'], 'uses' => 'UnidadeController@deletarUnidade']);

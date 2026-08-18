@@ -5,7 +5,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Doacao extends Model
+class DoacaoColeta extends Model
 {
     protected $table = 'doacao';
     protected $primaryKey = 'id';
@@ -13,10 +13,7 @@ class Doacao extends Model
 
 
     public $fillable = [
-        'doador_id',
-        'unidade_id',
-        'data_e_hora_agendada',
-        'usuario_id'
+        'volume_coletado'
     ];
 
     public function usuario()
@@ -29,7 +26,8 @@ class Doacao extends Model
         return $this->hasMany(Doacao_historico::class, 'doacao_id', 'id');
     }
 
-    public function doador() {
+    public function doador()
+    {
         return $this->belongsTo(Doador::class, 'doador_id', 'id');
     }
 
@@ -37,7 +35,8 @@ class Doacao extends Model
     {
         return $this->belongsTo(Unidade::class, 'unidade_id', 'id');
     }
-    public function bolsa(){
+    public function bolsa()
+    {
         return $this->hasMany(Bolsa::class, 'doacao_id', 'id');
     }
 }
