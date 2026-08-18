@@ -15,13 +15,25 @@ class UsuarioController extends Controller
 
     public function listarUsuarios()
     {
-        $usuarios = Usuario::all();
+        $usuarios = Usuario::with('doacao')->with('doacao_historico')->all();
 
         $usuarios->makeHidden(['senha']);
 
         return response()->json([
             'sucesso' => true,
             'dados' => $usuarios
+        ], 200);
+    }
+
+    public function buscarUsuario($usuarioId)
+    {
+        $usuario = Usuario::with('doacao')->with('doacao_historico')->find($usuarioId);
+
+        $usuario->makeHidden(['senha']);
+
+        return response()->json([
+            'sucesso' => true,
+            'dados' => $usuario
         ], 200);
     }
 
@@ -93,5 +105,68 @@ class UsuarioController extends Controller
             'mensagem' => 'Usuário logado com sucesso',
             'token' => $jwt
         ], 200);
+    }
+
+    public function atualizarUsuario(Request $request, UsuarioValidator $validador, int $usuarioId)
+    {
+        try {
+
+            $usuario = Usuario::find($usuarioId);
+
+            if (is_null($usuario)) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Usuário não encontrado'
+                ], 404);
+            }
+
+            $dadosValidados = $validador->validate($request);
+
+            $dadosValidados['senha'] = Hash::make($dadosValidados['senha']);
+
+            $usuario->update($dadosValidados);
+
+
+            return response()->json([
+                'sucesso' => true,
+                'mensagem' => 'Usuário atualizado com sucesso'
+            ], 200);
+        } catch (QueryException $e) {
+
+
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Erro ao atualizar usuário',
+                'erro' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function deletarUsuario($usuarioId)
+    {
+        try {
+            $usuario = Usuario::find($usuarioId);
+
+            if (is_null($usuario)) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Usuário não encontrado'
+                ], 404);
+            }
+
+            $usuario->delete();
+
+
+            return response()->json([
+                'sucesso' => true,
+                'mensagem' => 'Usuário deletado com sucesso'
+            ], 200);
+        } catch (QueryException $e) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Erro ao deletar usuário',
+                'erro' => $e->getMessage()
+            ], 500);
+        }
     }
 }
