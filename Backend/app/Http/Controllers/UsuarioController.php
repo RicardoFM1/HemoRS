@@ -36,6 +36,7 @@ class UsuarioController extends Controller
 
             return response()->json([
                 'sucesso' => true,
+                'mensagem' => 'Usuário criado com sucesso',
                 'dados' => $usuario
             ], 201);
         } catch (QueryException $e) {
@@ -49,11 +50,12 @@ class UsuarioController extends Controller
     }
 
 
-    public function fazerLogin(Request $request) {
+    public function fazerLogin(Request $request)
+    {
 
         $usuario = Usuario::where('email', $request->only('email'))->first();
 
-        if(is_null($usuario)){
+        if (is_null($usuario)) {
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Credenciais inválidas'
@@ -62,7 +64,7 @@ class UsuarioController extends Controller
 
         $senhaCorreta = Hash::check($request->input('senha'), $usuario->senha);
 
-        if(!$senhaCorreta){
+        if (!$senhaCorreta) {
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Credenciais inválidas'
