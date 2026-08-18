@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Validators\DoadorValidator;
+use App\Models\Doacao;
 use App\Models\Doador;
 use Carbon\Carbon;
 use Firebase\JWT\JWT;
@@ -18,7 +19,7 @@ class DoadorController extends Controller
     {
         $doadores = Doador::with('doacao')->get();
 
-       
+
         return response()->json([
             'sucesso' => true,
             'dados' => $doadores
@@ -57,7 +58,7 @@ class DoadorController extends Controller
             $idade = $dataHoje->diffInYears(Carbon::parse($dataNascimento));
 
 
-            if($idade < 16 || $idade > 69){
+            if ($idade < 16 || $idade > 69) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
@@ -67,12 +68,12 @@ class DoadorController extends Controller
 
 
             $doador = Doador::create($dadosValidados);
-            
+
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador criado com sucesso',
                 'dados' => array_merge($doador->toArray(), ['idade' => $idade])
-                    
+
             ], 201);
         } catch (QueryException $e) {
             if (str_contains($e->getMessage(), 'email_UNIQUE')) {
@@ -155,6 +156,17 @@ class DoadorController extends Controller
                     'sucesso' => false,
                     'mensagem' => 'Doador não encontrado'
                 ], 404);
+            }
+
+
+            $doacao = Doacao::where('doador_id', $doador->id);
+
+            if ($doacao) {
+                $doador->update(['status' => 'inativo']);
+                return response()->json([
+                    'sucesso' => true,
+                    'mensagem' => 'Doador não pode ser deletado pois já tem uma doação associada, mas foi inativado.'
+                ], 409);
             }
 
             $doador->delete();

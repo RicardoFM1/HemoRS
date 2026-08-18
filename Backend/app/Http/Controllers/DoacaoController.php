@@ -52,6 +52,8 @@ class DoacaoController extends Controller
         ]);
     }
 
+
+
     public function buscarDoacao($doacaoId)
     {
         $doacao = Doacao::with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa')->find($doacaoId);
@@ -83,6 +85,14 @@ class DoacaoController extends Controller
 
             $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status', 'coletada')->count();
 
+            $doador = Doador::find($request->input('doador_id'));
+
+            if ($doador->status === 'inativo') {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Doador inativo impossibilitado de agendar uma doação.'
+                ], 409);
+            }
 
             if ($doacoesNaUnidade >= $unidade->capacidade_diaria) {
                 return response()->json([
@@ -90,6 +100,8 @@ class DoacaoController extends Controller
                     'mensagem' => 'Capacidade máxima diária atingida na unidade'
                 ]);
             }
+
+
 
             $doacao = Doacao::create($dadosValidados);
 
@@ -186,7 +198,7 @@ class DoacaoController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
-            if($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] <= 500){
+            if ($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] <= 500) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'O volume coletado precisa estar entre 400ml e 500ml'
