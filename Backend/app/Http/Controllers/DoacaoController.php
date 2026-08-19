@@ -318,7 +318,6 @@ class DoacaoController extends Controller
         try {
 
             $doacao = DoacaoColeta::with('doador')->find($doacaoId);
-
             if (is_null($doacao)) {
                 return response()->json([
                     'sucesso' => false,
@@ -364,9 +363,9 @@ class DoacaoController extends Controller
 
             $usuario = $request->auth;
 
-            $buscarDoacao = Doacao::where('usuario_id', $usuario->id)->first();
+            $buscarDoacao = Doacao::where('usuario_id', $usuario['id'])->first();
 
-            if (is_null($buscarDoacao)) {
+            if (empty($buscarDoacao)) {
 
                 Bolsa::create([
                     'doacao_id' => $doacao->id,
@@ -393,11 +392,17 @@ class DoacaoController extends Controller
 
             ], 200);
         } catch (QueryException $e) {
-
+            
+            if(str_contains($e->getMessage(), 'doacao_id_UNIQUE')){
+                return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Doação já coletada' 
+            ], 409);
+            }
 
             return response()->json([
                 'sucesso' => false,
-                'mensagem' => 'Erro ao realizar coleta da doação',
+                'mensagem' => 'Erro ao realizar coleta da doação' 
             ], 500);
         }
     }
