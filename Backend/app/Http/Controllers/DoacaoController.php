@@ -42,7 +42,7 @@ class DoacaoController extends Controller
         $porPagina = (int) $request->input('por_pagina', 15);
         $porPagina = min(max($porPagina, 1), 100);
 
-        $ordenacaoPermitida = ['id', 'doador_id', 'unidade_id', 'usuario_id', 'status', 'data_e_hora_agendada', 'coletado_em'];
+        $ordenacaoPermitida = ['id', 'doador_id', 'unidade_id', 'usuario_id', 'status', 'data_e_hora_agendada', 'do_em'];
         if (!in_array($ordenar, $ordenacaoPermitida, true)) {
             $ordenar = 'id';
         }
@@ -282,7 +282,7 @@ class DoacaoController extends Controller
             if ($doacao->status === 'coletada' || $doacao->status === 'cancelada' || $doacao->status === 'recusada') {
                 return response()->json([
                     'sucesso' => false,
-                    'mensagem' => 'Não é possível alterar uma doação coleta, cancelada ou recusada'
+                    'mensagem' => 'Não é possível alterar uma doação coletada, cancelada ou recusada'
                 ], 409);
             }
 
@@ -328,10 +328,24 @@ class DoacaoController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
-            if ($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] <= 500) {
+            if ($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] > 500) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'O volume coletado precisa estar entre 400ml e 500ml'
+                ], 409);
+            }
+
+            if($doacao->status === 'agendada'){
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => "Não é possível fazer a coleta de uma doação ainda agendada"
+                ], 409);
+            }
+
+            if ($doacao->status === 'cancelada' || $doacao->status === 'recusada') {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Não é possível alterar uma doação cancelada ou recusada'
                 ], 409);
             }
 
