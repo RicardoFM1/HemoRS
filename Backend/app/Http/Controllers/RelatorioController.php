@@ -9,6 +9,8 @@ use Laravel\Lumen\Routing\Controller;
 
 class RelatorioController extends Controller{
 
+
+// Listagem de relatórios por tipo_sanguineo, quando vence, disponíveis e etc
     public function listarRelatorio()
     {
         $hoje = Carbon::now();

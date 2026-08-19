@@ -8,6 +8,7 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 class Auth {
+    // Middleware para validar o TOKEN
     public function handle($request, Closure $next){
     try{
         $token = $request->header('Authorization');
@@ -36,6 +37,7 @@ class Auth {
             'perfil' => $jwt->dados->perfil
         ];
 
+        // Insere no global o usuário para utilzar nos controllers
         $request->auth = $usuario;
 
 

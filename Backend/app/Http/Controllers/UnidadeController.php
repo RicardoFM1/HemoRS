@@ -10,7 +10,7 @@ use Laravel\Lumen\Routing\Controller;
 
 class UnidadeController extends Controller
 {
-
+    // Função de listagem de unidades junto com a doação
     public function listarUnidades()
     {
         $unidades = Unidade::with('doacao')->get();
@@ -22,6 +22,8 @@ class UnidadeController extends Controller
         ], 200);
     }
 
+
+    // Função para buscar a unidade específica
     public function buscarUnidade($unidadeId)
     {
         $unidade = Unidade::with('doacao')->find($unidadeId);
@@ -39,6 +41,8 @@ class UnidadeController extends Controller
         ]);
     }
 
+
+    // Criar uma unidade, sendo validada
     public function criarUnidade(Request $request, UnidadeValidator $validador)
     {
         try {
@@ -61,6 +65,7 @@ class UnidadeController extends Controller
         }
     }
 
+    // Atualizar uma unidade com o id dela e validando
     public function atualizarUnidade(Request $request, UnidadeValidator $validador, int $unidadeId)
     {
         try {
@@ -95,6 +100,7 @@ class UnidadeController extends Controller
         }
     }
 
+    // Função para deletar unidade pelo id
     public function deletarUnidade($unidadeId)
     {
         try {

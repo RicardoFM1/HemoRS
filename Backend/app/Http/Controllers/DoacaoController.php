@@ -25,7 +25,7 @@ use Laravel\Lumen\Routing\Controller;
 
 class DoacaoController extends Controller
 {
-
+    // Função de listar doações e filtragem por tipo_sanguineo, status, unidade, data inicio, data fim, ordenacão e etc
     public function listarDoacoes(Request $request)
     {
         $query = Doacao::query()->with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa');
@@ -86,6 +86,8 @@ class DoacaoController extends Controller
         ], 200);
     }
 
+
+    // Função para voltar o histórico, junto com usuário, unidade, bolsa e doador da doação.
     public function historico($doacaoId)
     {
         $doacao = Doacao::with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa')->find($doacaoId);
@@ -104,7 +106,7 @@ class DoacaoController extends Controller
     }
 
 
-
+    // Busca a doação específica.
     public function buscarDoacao($doacaoId)
     {
         $doacao = Doacao::with('usuario')->with('doacao_historico')->with('unidade')->with('doador')->with('bolsa')->find($doacaoId);
@@ -122,6 +124,8 @@ class DoacaoController extends Controller
         ]);
     }
 
+
+    // Função para validar o intervalo das doações
     private function validarIntervaloEQuantidadeDoacoes(int $doadorId): ?string
     {
         $doador = Doador::find($doadorId);
@@ -163,12 +167,15 @@ class DoacaoController extends Controller
         return null;
     }
 
+
+    // Função para agendar doação
     public function agendarDoacao(Request $request, DoacaoValidator $validador)
     {
         try {
 
             $dadosValidados = $validador->validate($request);
 
+            // Valida intervalo de doação
             $erroRegra = $this->validarIntervaloEQuantidadeDoacoes((int) $dadosValidados['doador_id']);
             if (!is_null($erroRegra)) {
                 return response()->json([
@@ -181,6 +188,7 @@ class DoacaoController extends Controller
 
             $dadosValidados['data_e_hora_agendada'] = $data;
 
+            // Buscar unidade
             $unidade = Unidade::find($dadosValidados['unidade_id']);
 
             if (is_null($unidade)) {
@@ -190,6 +198,7 @@ class DoacaoController extends Controller
                 ], 404);
             }
 
+            // Busca quantas doações existem na unidade
             $doacoesNaUnidade = Doacao::where('unidade_id', $dadosValidados['unidade_id'])->Orwhere('status', '=', 'agendada')->Orwhere('status', '=', 'triagem')->Orwhere('status', 'coletada')->count();
 
             $doador = Doador::find($request->input('doador_id'));
@@ -215,7 +224,7 @@ class DoacaoController extends Controller
                 ], 409);
             }
 
-
+            // Insere na tabela de histórico uma nova linha sobre a doação.
             $usuario = $request->auth;
             $doacao = Doacao::create($dadosValidados);
             Doacao_Historico::create([
@@ -245,6 +254,8 @@ class DoacaoController extends Controller
         }
     }
 
+
+    // Função chamada para fazer a triagem da doação
     public function triagem(Request $request, DoacaoValidatorTriagem $validador, int $doacaoId)
     {
         try {
@@ -261,7 +272,7 @@ class DoacaoController extends Controller
             $dadosValidados = $validador->validate($request);
             $dadosValidados['status'] = 'triagem';
 
-
+            // Valida anemia
             if (
                 $dadosValidados['peso'] < 50 &&
                 (
@@ -279,6 +290,8 @@ class DoacaoController extends Controller
                 ]);
             }
 
+            // Se tiver coletada, cancelada ou recusada não pode alterar
+
             if ($doacao->status === 'coletada' || $doacao->status === 'cancelada' || $doacao->status === 'recusada') {
                 return response()->json([
                     'sucesso' => false,
@@ -288,6 +301,8 @@ class DoacaoController extends Controller
 
             $usuario = $request->auth;
 
+
+            // Insere histórico
             $doacao->update($dadosValidados);
             Doacao_Historico::create([
                 'doacao_id' => $doacao->id,
@@ -313,6 +328,8 @@ class DoacaoController extends Controller
         }
     }
 
+
+    // Função para coleta da doação
     public function coleta(Request $request, DoacaoValidatorColeta $validador, int $doacaoId)
     {
         try {
@@ -327,6 +344,8 @@ class DoacaoController extends Controller
 
             $dadosValidados = $validador->validate($request);
 
+
+            // Validação de volume, se não estiver entre 400 e 500 da erro
             if ($dadosValidados['volume_coletado'] < 400 || $dadosValidados['volume_coletado'] > 500) {
                 return response()->json([
                     'sucesso' => false,
@@ -408,7 +427,7 @@ class DoacaoController extends Controller
     }
 
 
-
+    // Função para cancelar a doação
     public function cancela(Request $request, DoacaoValidatorCancela $validador, int $doacaoId)
     {
         try {
@@ -429,6 +448,7 @@ class DoacaoController extends Controller
             $doacao->update(['status' => 'cancelada']);
             $usuario = $request->auth;
 
+            // Insere mais uma linha no histórico
             Doacao_Historico::create([
                 'doacao_id' => $doacao->id,
                 'status_de_origem' => 'Cancelamento de doação',

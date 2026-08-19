@@ -14,7 +14,7 @@ use Laravel\Lumen\Routing\Controller;
 
 class DoadorController extends Controller
 {
-
+    // Função para listar os doadores com filtros
     public function listarDoadores(Request $request)
     {
         $query = Doador::query()->with('doacao');
@@ -74,6 +74,8 @@ class DoadorController extends Controller
         ], 200);
     }
 
+
+    // Função para buscar apenas um doador
     public function buscarDoador($doadorId)
     {
         $doador = Doador::with('doacao')->find($doadorId);
@@ -91,6 +93,8 @@ class DoadorController extends Controller
         ]);
     }
 
+
+    // Função de criar um doador, validando
     public function criarDoador(Request $request, DoadorValidator $validador)
     {
         try {
@@ -105,7 +109,7 @@ class DoadorController extends Controller
 
             $idade = $dataHoje->diffInYears(Carbon::parse($dataNascimento));
 
-
+            // Validação de idade.
             if ($idade < 16 || $idade > 69) {
                 return response()->json([
                     'sucesso' => false,
@@ -146,6 +150,8 @@ class DoadorController extends Controller
         }
     }
 
+
+    // Função para atualizar doador
     public function atualizarDoador(Request $request, DoadorValidator $validador, int $doadorId)
     {
         try {
@@ -194,6 +200,7 @@ class DoadorController extends Controller
         }
     }
 
+    // Função para deletar doador
     public function deletarDoador($doadorId)
     {
         try {
@@ -208,7 +215,8 @@ class DoadorController extends Controller
 
 
             $doacao = Doacao::where('doador_id', $doador->id);
-
+            
+            // Se o doador tiver uma doação, da erro e atualiza para inativo ao invés de deletar.
             if ($doacao) {
                 $doador->update(['status' => 'inativo']);
                 return response()->json([

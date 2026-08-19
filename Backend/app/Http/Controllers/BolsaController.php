@@ -24,6 +24,8 @@ use Laravel\Lumen\Routing\Controller;
 class BolsaController extends Controller
 {
 
+
+    // Listagem de bolsas
     public function listarBolsas()
     {
         $bolsas = Bolsa::with('doacao')->get();
@@ -40,7 +42,7 @@ class BolsaController extends Controller
 
 
 
-
+    // Função de reservar uma bolsa
     public function reservar(int $bolsaId)
     {
         try {
@@ -91,6 +93,8 @@ class BolsaController extends Controller
         }
     }
 
+
+    // Função de expurgar bolsas, valida as que estão vencidas e expurga elas (status = descartada)
     public function expurgar()
     {
         try {

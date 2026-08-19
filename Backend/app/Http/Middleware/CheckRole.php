@@ -6,7 +6,7 @@ use Closure;
 
 class CheckRole
 {
-
+    // Validar o perfil do usuário
     public function handle($request, Closure $next, ...$roles)
     {
         $usuario = $request->auth;

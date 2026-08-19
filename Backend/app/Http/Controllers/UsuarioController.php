@@ -12,7 +12,7 @@ use Laravel\Lumen\Routing\Controller;
 
 class UsuarioController extends Controller
 {
-
+    // Listar usuários junto com a doação e histórico
     public function listarUsuarios()
     {
         $usuarios = Usuario::with('doacao')->with('doacao_historico')->all();
@@ -25,6 +25,7 @@ class UsuarioController extends Controller
         ], 200);
     }
 
+    // Buscar usuário específico
     public function buscarUsuario($usuarioId)
     {
         $usuario = Usuario::with('doacao')->with('doacao_historico')->find($usuarioId);
@@ -37,6 +38,7 @@ class UsuarioController extends Controller
         ], 200);
     }
 
+    // Criar um usuário validando
     public function criarUsuario(Request $request, UsuarioValidator $validador)
     {
         try {
@@ -67,7 +69,7 @@ class UsuarioController extends Controller
         }
     }
 
-
+    // Função de fazer login retornando um JWT
     public function fazerLogin(Request $request)
     {
 
@@ -106,6 +108,8 @@ class UsuarioController extends Controller
         ], 200);
     }
 
+
+    // Função para atualizar usuário
     public function atualizarUsuario(Request $request, UsuarioValidator $validador, int $usuarioId)
     {
         try {
@@ -140,6 +144,7 @@ class UsuarioController extends Controller
         }
     }
 
+    // Função para deletar um usuário
     public function deletarUsuario($usuarioId)
     {
         try {
