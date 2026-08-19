@@ -183,7 +183,7 @@ class DoacaoController extends Controller
 
             $unidade = Unidade::find($dadosValidados['unidade_id']);
 
-            if(is_null($unidade)){
+            if (is_null($unidade)) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Unidade não encontrada'
@@ -194,7 +194,7 @@ class DoacaoController extends Controller
 
             $doador = Doador::find($request->input('doador_id'));
 
-            if(is_null($doador)){
+            if (is_null($doador)) {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => 'Doador não encontrado'
@@ -335,7 +335,7 @@ class DoacaoController extends Controller
                 ], 409);
             }
 
-            if($doacao->status === 'agendada'){
+            if ($doacao->status === 'agendada') {
                 return response()->json([
                     'sucesso' => false,
                     'mensagem' => "Não é possível fazer a coleta de uma doação ainda agendada"
@@ -362,15 +362,21 @@ class DoacaoController extends Controller
             $coletadoEm = date('Y-m-d H:i:s');
             $venceEm = date('Y-m-d H:i:s', strtotime('+35 days'));
 
-            Bolsa::create([
-                'doacao_id' => $doacao->id,
-                'codigo' => $codigo,
-                'tipo_sanguineo' => $doador->tipo_sanguineo ?? 'A+',
-                'coletado_em' => $coletadoEm,
-                'vence_em' => $venceEm,
-                'status' => 'disponivel'
-            ]);
             $usuario = $request->auth;
+
+            $buscarDoacao = Doacao::where('usuario_id', $usuario->id)->first();
+
+            if (is_null($buscarDoacao)) {
+
+                Bolsa::create([
+                    'doacao_id' => $doacao->id,
+                    'codigo' => $codigo,
+                    'tipo_sanguineo' => $doador->tipo_sanguineo ?? 'A+',
+                    'coletado_em' => $coletadoEm,
+                    'vence_em' => $venceEm,
+                    'status' => 'disponivel'
+                ]);
+            }
 
             Doacao_Historico::create([
                 'doacao_id' => $doacao->id,
