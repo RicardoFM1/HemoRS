@@ -44,7 +44,7 @@ class DoadorController extends Controller
         ]);
 
         try {
-            $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cepLimpo}");
+            $response = $client->get("https://brasilapi.com.br/api/ce/v2/{$cepLimpo}");
 
             if ($response->getStatusCode() !== 200) {
                 return null;
@@ -193,7 +193,12 @@ public function criarDoador(Request $request, DoadorValidator $validador)
         if (empty($DadosEndereco) || !is_array($DadosEndereco)) {
             $dadosValidados['endereco_origem'] = 'manual';
         }
-
+        if(empty($DadosEndereco)){
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Consulta do CEP deu erro, insira os campos: logradouro, numero, complemento, bairro, cidade, uf'
+            ], 422);
+        }
         // Se a API falhou, continuar normalmente
         $latitude = $DadosEndereco['location']['coordinates']['latitude'] ?? null;
         $longitude = $DadosEndereco['location']['coordinates']['longitude'] ?? null;
