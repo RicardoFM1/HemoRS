@@ -231,6 +231,7 @@ class DoacaoController extends Controller
             try {
 
                 $client = new Client([
+                    'base_uri' => 'httpbin/delay',
                     'timeout' => 10,
                     'http_errors' => false
                 ]);

@@ -17,7 +17,17 @@ class Unidade extends Model
         'endereco_id',
         'capacidade_diaria',
         'longitude',
-        'latitude'
+        'latitude',
+        'cep',
+        'logradouro',
+        'numero',
+        'complemento',
+        'bairro',
+        'cidade', 
+        'uf', 
+        'latitude',
+        'longitude',
+        'endereco_origem'
        
     ];
 

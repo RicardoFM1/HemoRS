@@ -22,7 +22,17 @@ class Doador extends Model
         'email',
         'status',
         'endereco_id',
-        'autorizacao_responsavel'
+        'autorizacao_responsavel',
+        'cep',
+        'logradouro',
+        'numero',
+        'complemento',
+        'bairro',
+        'cidade', 
+        'uf', 
+        'latitude',
+        'longitude',
+        'endereco_origem'
     ];
 
     public function doacao()

@@ -45,7 +45,7 @@ class DoadorController extends Controller
         ]);
 
         try {
-            $response = $client->get("https://brasilapi.com.br/api/ce/v2/{$cepLimpo}");
+            $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cepLimpo}");
 
             if ($response->getStatusCode() !== 200) {
                 return null;
