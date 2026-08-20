@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Validators\UnidadeValidator;
+use App\Models\Doacao;
 use App\Models\Doador;
 use App\Models\Endereco;
 use App\Models\Unidade;
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -131,78 +133,78 @@ class UnidadeController extends Controller
     }
 
     public function unidadeMaisProxima(Request $request)
-{
-    $doadorId = $request->input('doador_id');
-    if ($doadorId === null) {
-        return response()->json([
-            'sucesso' => false,
-            'mensagem' => 'Referência do doador é obrigatório.'
-        ], 400);
-    }
-
-    $doador = Doador::find($doadorId);
-    if (empty($doador)) {
-        return response()->json([
-            'sucesso' => false,
-            'mensagem' => 'Doador não encontrado.'
-        ], 404);
-    }
-
-    $endereco = Endereco::find($doador->endereco_id);
-    if (!$endereco || !$endereco->latitude || !$endereco->longitude) {
-        return response()->json([
-            'sucesso' => false,
-            'mensagem' => 'Endereço do doador não possui coordenadas válidas.'
-        ], 400);
-    }
-
-    $latitudeUsuario = (float) $endereco->latitude;
-    $longitudeUsuario = (float) $endereco->longitude;
-
-    $unidades = Unidade::with('endereco')->get();
-    $unidadesProximas = [];
-
-    foreach ($unidades as $unidade) {
-        $latUnidade = (float) ($unidade->latitude ?? $unidade->endereco->latitude ?? 0);
-        $lonUnidade = (float) ($unidade->longitude ?? $unidade->endereco->longitude ?? 0);
-
-        if ($latUnidade == 0 || $lonUnidade == 0) {
-            continue;
+    {
+        $doadorId = $request->input('doador_id');
+        if ($doadorId === null) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Referência do doador é obrigatório.'
+            ], 400);
         }
 
-        $distancia = $this->haversine(
-            $latitudeUsuario,
-            $longitudeUsuario,
-            $latUnidade,
-            $lonUnidade
-        );
+        $doador = Doador::find($doadorId);
+        if (empty($doador)) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Doador não encontrado.'
+            ], 404);
+        }
 
-        $unidadesProximas[] = [
-            'unidade_id'   => $unidade->id,
-            'nome'         => $unidade->nome,
-            'latitude'     => $latUnidade,
-            'longitude'    => $lonUnidade,
-            'distancia_km' => round($distancia, 2),
-        ];
-    }
+        $endereco = Endereco::find($doador->endereco_id);
+        if (!$endereco || !$endereco->latitude || !$endereco->longitude) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Endereço do doador não possui coordenadas válidas.'
+            ], 400);
+        }
 
-    if (empty($unidadesProximas)) {
+        $latitudeUsuario = (float) $endereco->latitude;
+        $longitudeUsuario = (float) $endereco->longitude;
+
+        $unidades = Unidade::with('endereco')->get();
+        $unidadesProximas = [];
+
+        foreach ($unidades as $unidade) {
+            $latUnidade = (float) ($unidade->latitude ?? $unidade->endereco->latitude ?? 0);
+            $lonUnidade = (float) ($unidade->longitude ?? $unidade->endereco->longitude ?? 0);
+
+            if ($latUnidade == 0 || $lonUnidade == 0) {
+                continue;
+            }
+
+            $distancia = $this->haversine(
+                $latitudeUsuario,
+                $longitudeUsuario,
+                $latUnidade,
+                $lonUnidade
+            );
+
+            $unidadesProximas[] = [
+                'unidade_id'   => $unidade->id,
+                'nome'         => $unidade->nome,
+                'latitude'     => $latUnidade,
+                'longitude'    => $lonUnidade,
+                'distancia_km' => round($distancia, 2),
+            ];
+        }
+
+        if (empty($unidadesProximas)) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Nenhuma unidade com coordenadas válidas foi encontrada.'
+            ], 404);
+        }
+
+        // Ordena do menor para o maior de acordo com a distância em km
+        usort($unidadesProximas, function ($a, $b) {
+            return $a['distancia_km'] <=> $b['distancia_km'];
+        });
+
         return response()->json([
-            'sucesso' => false,
-            'mensagem' => 'Nenhuma unidade com coordenadas válidas foi encontrada.'
-        ], 404);
+            'sucesso' => true,
+            'dados'   => $unidadesProximas
+        ], 200);
     }
-
-    // Ordena do menor para o maior de acordo com a distância em km
-    usort($unidadesProximas, function ($a, $b) {
-        return $a['distancia_km'] <=> $b['distancia_km'];
-    });
-
-    return response()->json([
-        'sucesso' => true,
-        'dados'   => $unidadesProximas
-    ], 200);
-}
 
     // Atualizar uma unidade com o id dela e validando
     public function atualizarUnidade(Request $request, UnidadeValidator $validador, int $unidadeId)
@@ -258,8 +260,101 @@ class UnidadeController extends Controller
         }
     }
 
-    public function briefing(Request $request)
+    public function briefing(Request $request, $id)
     {
-        $data = $request->query('data', '');
+        // Pega a data passada via Query String (?data=YYYY-MM-DD)
+        $dataInput = $request->query('data');
+
+        if (!$dataInput) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'O parâmetro de data é obrigatório.'
+            ], 400);
+        }
+
+        $unidade = Unidade::find($id);
+
+        if(empty($unidade)){
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Unidade não encontrada para briefing'
+            ], 404);
+        }
+        $dataPedida = Carbon::parse($dataInput);
+        $hoje = Carbon::today();
+
+        // RN26: Validação do limite de 16 dias no futuro
+        if ($dataPedida->gt($hoje->copy()->addDays(16))) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'A data informada excede o limite de 16 dias para previsão.'
+            ], 422);
+        }
+
+        $avisos = [];
+        $previsao = null;
+
+        // RN25: Verificação de lotação (> 80% da capacidade)
+        $totalAgendamentos = Doacao::where('unidade_id', $id)
+            ->whereDate('data_e_hora_agendada', $dataPedida)
+            ->count();
+
+        if ($unidade->capacidade_diaria > 0) {
+            $percentualOcupacao = ($totalAgendamentos / $unidade->capacidade_diaria) * 100;
+            if ($percentualOcupacao > 80) {
+                $avisos[] = 'unidade perto da lotação';
+            }
+        }
+
+        // RN26: Consulta de previsão apenas para datas atuais ou futuras
+        if ($dataPedida->gte($hoje)) {
+            try {
+                $client = new Client([
+                    'timeout' => 10,
+                    'http_errors' => false,
+                ]);
+
+                $dataFormatada = $dataPedida->toDateString();
+
+                $response = $client->get('https://api.open-meteo.com/v1/forecast', [
+                    'query' => [
+                        'latitude'  => $unidade->latitude,
+                        'longitude' => $unidade->longitude,
+                        'start_date' => $dataFormatada,
+                        'end_date'   => $dataFormatada,
+                        'daily'      => ['temperature_2m_max', 'precipitation_probability_max'],
+                        'timezone'   => 'auto',
+                    ]
+                ]);
+
+                if ($response->getStatusCode() === 200) {
+                    $dadosClima = json_decode((string) $response->getBody(), true);
+                    $previsao = $dadosClima;
+
+                    $tempMaxima  = $dadosClima['daily']['temperature_2m_max'][0] ?? 0;
+                    $chanceChuva = $dadosClima['daily']['precipitation_probability_max'][0] ?? 0;
+
+                    if ($chanceChuva >= 70) {
+                        $avisos[] = 'risco de falta: chuva provável';
+                    }
+
+                    if ($tempMaxima >= 32) {
+                        $avisos[] = 'reforçar hidratação e sala de espera';
+                    }
+                } else {
+                    $avisos[] = 'Falha ao obter a previsão do tempo.';
+                }
+            } catch (\Throwable $e) {
+                $avisos[] = 'Falha ao consultar serviço de previsão do tempo.';
+            }
+        }
+
+        return response()->json([
+            'sucesso'  => true,
+            'unidade'  => $unidade->nome,
+            'data'     => $dataPedida->toDateString(),
+            'previsao' => $previsao,
+            'avisos'   => $avisos,
+        ], 200);
     }
 }
