@@ -10,6 +10,7 @@ use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Lumen\Routing\Controller;
 
@@ -156,14 +157,20 @@ class DoadorController extends Controller
                 $dadosValidados['endereco_origem'] = 'nao_resolvido';
             }
 
+           Cache::putMany([
+    'cache1' => 'teste 1',
+    'cache2' => 'teste 2'
+], 60);
 
+$cache = Cache::many(['cache1', 'cache2']);
             $doador = Doador::create($dadosValidados);
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador criado com sucesso',
                 'dados' => array_merge($doador->toArray(), ['idade' => $idade]),
-                'endereco' => $DadosEndereco
+                'endereco' => $DadosEndereco,
+                'cache' => $cache
 
             ], 201);
         } catch (QueryException $e) {
@@ -221,7 +228,7 @@ class DoadorController extends Controller
 
                 $response = $client->get("https://brasilapi.com.br/api//{$dadosValidados['cep']}");
 
-                if($response->getStatusCode() !== 200){
+                if ($response->getStatusCode() !== 200) {
                     $dadosValidados['endereco_origem'] = 'nao_resolvido';
                 }
                 $DadosEndereco = json_decode($response->getBody(), true);

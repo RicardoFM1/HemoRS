@@ -19,10 +19,14 @@ use Carbon\Carbon;
 use DateTime;
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ServerException;
+use GuzzleHttp\Handler\Timeout;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Lumen\Routing\Controller;
+
+use function Laravel\Prompts\error;
 
 class DoacaoController extends Controller
 {
@@ -185,7 +189,7 @@ class DoacaoController extends Controller
                 ], 422);
             }
 
-            
+
 
             // Buscar unidade
             $unidade = Unidade::find($dadosValidados['unidade_id']);
@@ -224,33 +228,49 @@ class DoacaoController extends Controller
             }
 
             // Insere na tabela de histórico uma nova linha sobre a doação.
-            $client = new Client([
-                'timeout' => 10
-            ]);
-            $ano = date('Y');
-            $response = $client->get("https://brasilapi.com.br/api/feriados/v1/{$ano}");
-            
-            $dados = json_decode((string) $response->getBody(), true);
-            $usuario = $request->auth;
+            try {
 
-            foreach($dados as $dado){
-                $data = Carbon::parse($dadosValidados['data_e_hora_agendada'])->format('Y-m-d');
-                $mesEDia = Carbon::parse($data)->format('d/m');
-                if(Carbon::parse($dado['date'])->eq($data)){
-                    return response()->json([
-                        'sucesso' => false,
-                        'mensagem' => "{$mesEDia} é dia de {$dado['name']}"
-                    ], 422);
+                $client = new Client([
+                    'timeout' => 10
+                ]);
+            } catch (Timeout) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'API expirou o tempo'
+                ], 504);
+            }
+            try {
+                $ano = date('Y');
+                $response = $client->get("https://brasilapi.com.br/api/feriados/v1/{$ano}");
+
+                
+                $dados = json_decode((string) $response->getBody(), true);
+                $usuario = $request->auth;
+
+                foreach ($dados as $dado) {
+                    $data = Carbon::parse($dadosValidados['data_e_hora_agendada'])->format('Y-m-d');
+                    $mesEDia = Carbon::parse($data)->format('d/m');
+                    if (Carbon::parse($dado['date'])->eq($data)) {
+                        return response()->json([
+                            'sucesso' => false,
+                            'mensagem' => "{$mesEDia} é dia de {$dado['name']}"
+                        ], 422);
+                    }
                 }
+            } catch (\Exception $e) {
+                return response()->json([
+                    'sucesso' => false,
+                    'mensagem' => 'Feriados não puderam ser encontrados',
+                ], 422);
             }
             $doacao = Doacao::create($dadosValidados);
             Doacao_Historico::create([
-               'doacao_id' => $doacao->id,
-               'status_de_origem' => 'Agendamento de doação',
-               'status_de_destino' => 'Triagem de doação',
-               'usuario_id' => $usuario['id'],
-               'motivo' => 'Agendamento de uma doação de um doador',
-               'data_e_hora' => $dadosValidados['data_e_agendado']
+                'doacao_id' => $doacao->id,
+                'status_de_origem' => 'Agendamento de doação',
+                'status_de_destino' => 'Triagem de doação',
+                'usuario_id' => $usuario['id'],
+                'motivo' => 'Agendamento de uma doação de um doador',
+                'data_e_hora' => $dadosValidados['data_e_hora_agendada']
             ]);
 
             return response()->json([
@@ -260,9 +280,6 @@ class DoacaoController extends Controller
 
             ], 201);
         } catch (QueryException $e) {
-
-
-
 
             return response()->json([
                 'sucesso' => false,
@@ -428,17 +445,17 @@ class DoacaoController extends Controller
 
             ], 200);
         } catch (QueryException $e) {
-            
-            if(str_contains($e->getMessage(), 'doacao_id_UNIQUE')){
+
+            if (str_contains($e->getMessage(), 'doacao_id_UNIQUE')) {
                 return response()->json([
-                'sucesso' => false,
-                'mensagem' => 'Doação já coletada' 
-            ], 409);
+                    'sucesso' => false,
+                    'mensagem' => 'Doação já coletada'
+                ], 409);
             }
 
             return response()->json([
                 'sucesso' => false,
-                'mensagem' => 'Erro ao realizar coleta da doação' 
+                'mensagem' => 'Erro ao realizar coleta da doação'
             ], 500);
         }
     }
