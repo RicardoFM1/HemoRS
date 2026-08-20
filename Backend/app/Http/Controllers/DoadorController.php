@@ -128,6 +128,7 @@ class DoadorController extends Controller
 
                 $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
                 $DadosEndereco = json_decode($response->getBody(), true);
+                 
                 $dadosValidados['endereco_origem'] = 'api';
             }
             $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? $DadosEndereco['city'];
@@ -135,12 +136,18 @@ class DoadorController extends Controller
             $dadosValidados['uf'] = $dadosValidados['uf'] ?? $DadosEndereco['state'];
             $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? $DadosEndereco['street'];
 
+            if(!is_null($dadosValidados['cep']) && !is_null($dadosValidados['logradouro']) && !is_null($dadosValidados['numero']) && !is_null($dadosValidados['complemento']) && !is_null($dadosValidados['bairro']) 
+                && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])){
+                $dadosValidados['endereco_origem'] = 'manual';
+            }
+
             $doador = Doador::create($dadosValidados);
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador criado com sucesso',
-                'dados' => array_merge($doador->toArray(), ['idade' => $idade])
+                'dados' => array_merge($doador->toArray(), ['idade' => $idade]),
+                'endereco' => $DadosEndereco
 
             ], 201);
         } catch (QueryException $e) {
