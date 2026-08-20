@@ -8,10 +8,43 @@ use App\Models\Unidade;
 use GuzzleHttp\Client;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Lumen\Routing\Controller;
 
 class UnidadeController extends Controller
 {
+    private function buscarEnderecoPorCep(string $cep): ?array
+    {
+        $cepLimpo = preg_replace('/\D/', '', $cep) ?? '';
+
+        if ($cepLimpo === '') {
+            return null;
+        }
+
+        $cacheKey = 'cep_brasilapi_' . $cepLimpo;
+
+        return Cache::remember($cacheKey, 60 * 60 * 24, function () use ($cepLimpo) {
+            $client = new Client([
+                'timeout' => 10,
+                'http_errors' => false,
+            ]);
+
+            try {
+                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cepLimpo}");
+
+                if ($response->getStatusCode() !== 200) {
+                    return null;
+                }
+
+                $dados = json_decode((string) $response->getBody(), true);
+
+                return is_array($dados) && !empty($dados) ? $dados : null;
+            } catch (\Throwable $e) {
+                return null;
+            }
+        });
+    }
+
     // Função de listagem de unidades junto com a doação
     public function listarUnidades()
     {
@@ -71,16 +104,7 @@ class UnidadeController extends Controller
             $dadosEndereco = null;
 
             if (!empty($cep)) {
-                $client = new Client([
-                    'timeout' => 10,
-                    'http_errors' => false,
-                ]);
-
-                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cep}");
-
-                if ($response->getStatusCode() === 200) {
-                    $dadosEndereco = json_decode((string) $response->getBody(), true);
-                }
+                $dadosEndereco = $this->buscarEnderecoPorCep($cep);
             }
 
             $logradouro = $dadosValidados['logradouro'] ?? ($dadosEndereco['street'] ?? null);

@@ -17,6 +17,56 @@ use Laravel\Lumen\Routing\Controller;
 
 class DoadorController extends Controller
 {
+    private function buscarEnderecoPorCep(string $cep): ?array
+    {
+        $cepLimpo = preg_replace('/\D/', '', $cep) ?? '';
+
+        if ($cepLimpo === '') {
+            return null;
+        }
+
+        $cacheKey = 'cep_brasilapi_' . $cepLimpo;
+
+        if (Cache::has($cacheKey)) {
+            $dados = Cache::get($cacheKey);
+
+            if (is_array($dados) && !empty($dados)) {
+                return [
+                    'dados' => $dados,
+                    'origem' => 'cache',
+                ];
+            }
+        }
+
+        $client = new Client([
+            'timeout' => 10,
+            'http_errors' => false,
+        ]);
+
+        try {
+            $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cepLimpo}");
+
+            if ($response->getStatusCode() !== 200) {
+                return null;
+            }
+
+            $dados = json_decode((string) $response->getBody(), true);
+
+            if (is_array($dados) && !empty($dados)) {
+                Cache::put($cacheKey, $dados, 60 * 60 * 24);
+
+                return [
+                    'dados' => $dados,
+                    'origem' => 'api',
+                ];
+            }
+
+            return null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     // Função para listar os doadores com filtros
     public function listarDoadores(Request $request)
     {
@@ -120,21 +170,15 @@ public function criarDoador(Request $request, DoadorValidator $validador)
 
         $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep'] ?? '');
         $DadosEndereco = null;
+        $origemEndereco = 'manual';
 
         if (!empty($dadosValidados['cep'])) {
-            $client = new Client([
-                'timeout' => 10,
-                'http_errors' => false,
-            ]);
+            $resultadoCep = $this->buscarEnderecoPorCep($dadosValidados['cep']);
 
-            $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
-
-            if ($response->getStatusCode() === 200) {
-                $DadosEndereco = json_decode((string) $response->getBody(), true);
-
-                if (is_array($DadosEndereco) && !empty($DadosEndereco)) {
-                    $dadosValidados['endereco_origem'] = 'api';
-                }
+            if (is_array($resultadoCep) && !empty($resultadoCep['dados'])) {
+                $DadosEndereco = $resultadoCep['dados'];
+                $origemEndereco = $resultadoCep['origem'] ?? 'api';
+                $dadosValidados['endereco_origem'] = $origemEndereco;
             }
         }
 
@@ -146,13 +190,7 @@ public function criarDoador(Request $request, DoadorValidator $validador)
         $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
         $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
 
-        if (
-            !empty($dadosValidados['cep']) &&
-            !empty($dadosValidados['logradouro']) &&
-            !empty($dadosValidados['bairro']) &&
-            !empty($dadosValidados['cidade']) &&
-            !empty($dadosValidados['uf'])
-        ) {
+        if (empty($DadosEndereco) || !is_array($DadosEndereco)) {
             $dadosValidados['endereco_origem'] = 'manual';
         }
 
@@ -170,6 +208,7 @@ public function criarDoador(Request $request, DoadorValidator $validador)
             'uf' => $dadosValidados['uf'],
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'endereco_origem' => $dadosValidados['endereco_origem'] ?? 'manual',
         ]);
 
         $doador = Doador::create([
@@ -236,21 +275,15 @@ public function criarDoador(Request $request, DoadorValidator $validador)
 
             $DadosEndereco = null;
             $endereco = $doador->endereco;
+            $origemEndereco = 'manual';
 
             if (!empty($dadosValidados['cep'])) {
-                $client = new Client([
-                    'timeout' => 10,
-                    'http_errors' => false,
-                ]);
+                $resultadoCep = $this->buscarEnderecoPorCep($dadosValidados['cep']);
 
-                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
-
-                if ($response->getStatusCode() === 200) {
-                    $DadosEndereco = json_decode((string) $response->getBody(), true);
-
-                    if (is_array($DadosEndereco) && !empty($DadosEndereco)) {
-                        $dadosValidados['endereco_origem'] = 'api';
-                    }
+                if (is_array($resultadoCep) && !empty($resultadoCep['dados'])) {
+                    $DadosEndereco = $resultadoCep['dados'];
+                    $origemEndereco = $resultadoCep['origem'] ?? 'api';
+                    $dadosValidados['endereco_origem'] = $origemEndereco;
                 }
             }
 
@@ -260,6 +293,10 @@ public function criarDoador(Request $request, DoadorValidator $validador)
             $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? ($DadosEndereco['street'] ?? ($endereco->logradouro ?? null));
             $dadosValidados['numero'] = $dadosValidados['numero'] ?? ($endereco->numero ?? 'Sem número');
             $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? ($endereco->complemento ?? 'Sem complemento');
+
+            if (empty($DadosEndereco) || !is_array($DadosEndereco)) {
+                $dadosValidados['endereco_origem'] = 'manual';
+            }
 
             $latitude = $DadosEndereco['location']['coordinates']['latitude'] ?? ($endereco->latitude ?? null);
             $longitude = $DadosEndereco['location']['coordinates']['longitude'] ?? ($endereco->longitude ?? null);
@@ -274,6 +311,7 @@ public function criarDoador(Request $request, DoadorValidator $validador)
                 'uf' => $dadosValidados['uf'],
                 'latitude' => $latitude,
                 'longitude' => $longitude,
+                'endereco_origem' => $dadosValidados['endereco_origem'] ?? 'manual',
             ];
 
             if ($endereco) {
