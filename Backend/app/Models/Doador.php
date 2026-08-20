@@ -21,17 +21,8 @@ class Doador extends Model
         'telefone',
         'email',
         'status',
-        'autorizacao_responsavel',
-        'cep',
-        'logradouro',
-        'numero',
-        'complemento',
-        'bairro',
-        'cidade', 
-        'uf', 
-        'latitude',
-        'longitude',
-        'endereco_origem'
+        'endereco_id',
+        'autorizacao_responsavel'
     ];
 
     public function doacao()
@@ -39,5 +30,8 @@ class Doador extends Model
         return $this->hasMany(Doacao::class, 'doador_id', 'id');
     }
 
+    public function endereco() {
+        return $this->belongsTo(Endereco::class, 'endereco_id', 'id');
+    }
     
 }

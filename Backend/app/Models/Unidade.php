@@ -14,7 +14,7 @@ class Unidade extends Model
 
     public $fillable = [
         'nome',
-        'cidade',
+        'endereco_id',
         'capacidade_diaria',
         'longitude',
         'latitude'
@@ -24,6 +24,11 @@ class Unidade extends Model
     public function doacao()
     {
         return $this->hasMany(Doacao::class, 'unidade_id', 'id');
+    }
+
+    public function endereco()
+    {
+        return $this->belongsTo(Endereco::class, 'endereco_id', 'id');
     }
 
 }

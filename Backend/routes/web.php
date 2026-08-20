@@ -15,6 +15,4 @@ require_once __DIR__ . "/Bolsa.php";
 
 require_once __DIR__ . "/Relatorio.php";
 
-require_once __DIR__ . '/Wheater.php';
 
-require_once __DIR__ . '/BrasilAPI.php';

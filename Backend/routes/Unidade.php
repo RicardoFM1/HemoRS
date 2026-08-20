@@ -9,4 +9,6 @@ $router->group(['prefix' => '/unidades'], function () use ($router) {
     $router->post('/', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'UnidadeController@criarUnidade']);
     $router->patch('/{unidadeId}', ['middleware' => ['auth', 'role:recepcao,gestor'], 'uses' => 'UnidadeController@atualizarUnidade']);
     $router->delete('/{unidadeId}', ['middleware' => ['auth', 'role:gestor'], 'uses' => 'UnidadeController@deletarUnidade']);
+    $router->get('/proximas', ['middleware' => ['auth', 'role:gestor'], 'uses' => 'UnidadeController@unidadeMaisProxima']);
+
 });

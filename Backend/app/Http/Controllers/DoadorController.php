@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Validators\DoadorValidator;
 use App\Models\Doacao;
 use App\Models\Doador;
+use App\Models\Endereco;
 use Carbon\Carbon;
 use Firebase\JWT\JWT;
 use GuzzleHttp\Client;
@@ -19,7 +20,7 @@ class DoadorController extends Controller
     // Função para listar os doadores com filtros
     public function listarDoadores(Request $request)
     {
-        $query = Doador::query()->with('doacao');
+        $query = Doador::query()->with('doacao')->with('endereco');
 
         $busca = trim((string) $request->input('busca', ''));
         $tipoSanguineo = $request->input('tipo_sanguineo');
@@ -97,112 +98,128 @@ class DoadorController extends Controller
 
 
     // Função de criar um doador, validando
-    public function criarDoador(Request $request, DoadorValidator $validador)
-    {
-        try {
+public function criarDoador(Request $request, DoadorValidator $validador)
+{
+    try {
+        $dadosValidados = $validador->validate($request);
 
-            $dadosValidados = $validador->validate($request);
+        $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf'] ?? '');
+        $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone'] ?? '');
 
-            $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf']);
-            $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone']);
+        $dataHoje = Carbon::now();
+        $dataNascimento = $request->input('data_de_nascimento');
 
-            $dataHoje = Carbon::now();
-            $dataNascimento = $request->input('data_de_nascimento');
+        $idade = $dataHoje->diffInYears(Carbon::parse($dataNascimento));
 
-            $idade = $dataHoje->diffInYears(Carbon::parse($dataNascimento));
-
-            // Validação de idade.
-            if ($idade < 16 || $idade > 69) {
-                return response()->json([
-                    'sucesso' => false,
-                    'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
-                ], 409);
-            }
-            $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep']);
-            $DadosEndereco = null;
-
-            if (!is_null($dadosValidados['cep']) && !empty($dadosValidados['cep'])) {
-
-                $client = new Client([
-                    'timeout' => 10
-                ]);
-
-
-                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
-                $status = $response->getStatusCode();
-
-
-                $DadosEndereco = json_decode($response->getBody(), true);
-
-                $dadosValidados['endereco_origem'] = 'api';
-            }
-            $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? $DadosEndereco['city'];
-            $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? $DadosEndereco['neighborhood'];
-            $dadosValidados['uf'] = $dadosValidados['uf'] ?? $DadosEndereco['state'];
-            $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? $DadosEndereco['street'];
-            $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
-            $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
-
-
-            if (
-                !is_null($dadosValidados['cep']) && !is_null($dadosValidados['logradouro']) && !is_null($dadosValidados['numero']) && !is_null($dadosValidados['complemento']) && !is_null($dadosValidados['bairro'])
-                && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])
-            ) {
-                $dadosValidados['endereco_origem'] = 'manual';
-            }
-
-            if (
-                is_null($DadosEndereco['cep']) && is_null($DadosEndereco['city']) && is_null($DadosEndereco['state']) && is_null($DadosEndereco['neighborhood']) && is_null($DadosEndereco['street'])
-            ) {
-                $dadosValidados['endereco_origem'] = 'nao_resolvido';
-            }
-
-           Cache::putMany([
-    'cache1' => 'teste 1',
-    'cache2' => 'teste 2'
-], 60);
-
-$cache = Cache::many(['cache1', 'cache2']);
-            $doador = Doador::create($dadosValidados);
-
-            return response()->json([
-                'sucesso' => true,
-                'mensagem' => 'Doador criado com sucesso',
-                'dados' => array_merge($doador->toArray(), ['idade' => $idade]),
-                'endereco' => $DadosEndereco,
-                'cache' => $cache
-
-            ], 201);
-        } catch (QueryException $e) {
-            if (str_contains($e->getMessage(), 'email_UNIQUE')) {
-                return response()->json([
-                    'sucesso' => false,
-                    'mensagem' => 'Email já em uso',
-
-                ], 409);
-            }
-
-            if (str_contains($e->getMessage(), 'cpf_UNIQUE')) {
-                return response()->json([
-                    'sucesso' => false,
-                    'mensagem' => 'CPF já em uso'
-                ], 409);
-            }
-
+        if ($idade < 16 || $idade > 69) {
             return response()->json([
                 'sucesso' => false,
-                'mensagem' => 'Erro ao criar doador',
-            ], 500);
+                'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
+            ], 409);
         }
+
+        $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep'] ?? '');
+        $DadosEndereco = null;
+
+        if (!empty($dadosValidados['cep'])) {
+            $client = new Client([
+                'timeout' => 10,
+                'http_errors' => false,
+            ]);
+
+            $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
+
+            if ($response->getStatusCode() === 200) {
+                $DadosEndereco = json_decode((string) $response->getBody(), true);
+
+                if (is_array($DadosEndereco) && !empty($DadosEndereco)) {
+                    $dadosValidados['endereco_origem'] = 'api';
+                }
+            }
+        }
+
+        $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? ($DadosEndereco['city'] ?? null);
+        $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? ($DadosEndereco['neighborhood'] ?? null);
+        $dadosValidados['uf'] = $dadosValidados['uf'] ?? ($DadosEndereco['state'] ?? null);
+        $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? ($DadosEndereco['street'] ?? null);
+
+        $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
+        $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
+
+        if (
+            !empty($dadosValidados['cep']) &&
+            !empty($dadosValidados['logradouro']) &&
+            !empty($dadosValidados['bairro']) &&
+            !empty($dadosValidados['cidade']) &&
+            !empty($dadosValidados['uf'])
+        ) {
+            $dadosValidados['endereco_origem'] = 'manual';
+        }
+
+        // Se a API falhou, continuar normalmente
+        $latitude = $DadosEndereco['location']['coordinates']['latitude'] ?? null;
+        $longitude = $DadosEndereco['location']['coordinates']['longitude'] ?? null;
+
+        $endereco = Endereco::create([
+            'cep' => $dadosValidados['cep'],
+            'logradouro' => $dadosValidados['logradouro'],
+            'numero' => $dadosValidados['numero'],
+            'complemento' => $dadosValidados['complemento'],
+            'bairro' => $dadosValidados['bairro'],
+            'cidade' => $dadosValidados['cidade'],
+            'uf' => $dadosValidados['uf'],
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+        ]);
+
+        $doador = Doador::create([
+            'nome' => $dadosValidados['nome'],
+            'cpf' => $dadosValidados['cpf'],
+            'data_de_nascimento' => $dadosValidados['data_de_nascimento'],
+            'sexo' => $dadosValidados['sexo'],
+            'tipo_sanguineo' => $dadosValidados['tipo_sanguineo'],
+            'telefone' => $dadosValidados['telefone'],
+            'email' => $dadosValidados['email'],
+            'status' => $dadosValidados['status'] ?? 'ativo',
+            'endereco_id' => $endereco->id
+        ]);
+
+        return response()->json([
+            'sucesso' => true,
+            'mensagem' => 'Doador criado com sucesso',
+            'dados' => array_merge($doador->toArray(), ['idade' => $idade]),
+            'endereco' => $DadosEndereco
+        ], 201);
+    } catch (QueryException $e) {
+        if (str_contains($e->getMessage(), 'email_UNIQUE')) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Email já em uso',
+            ], 409);
+        }
+
+        if (str_contains($e->getMessage(), 'cpf_UNIQUE')) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'CPF já em uso'
+            ], 409);
+        }
+
+        return response()->json([
+            'sucesso' => false,
+            'mensagem' => 'Erro ao criar doador',
+            'erro' => $e->getMessage()
+        ], 500);
     }
+}
+    
 
 
     // Função para atualizar doador
     public function atualizarDoador(Request $request, DoadorValidator $validador, int $doadorId)
     {
         try {
-
-            $doador = Doador::find($doadorId);
+            $doador = Doador::with('endereco')->find($doadorId);
 
             if (is_null($doador)) {
                 return response()->json([
@@ -213,51 +230,87 @@ $cache = Cache::many(['cache1', 'cache2']);
 
             $dadosValidados = $validador->validate($request);
 
-            $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf']);
-            $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone']);
-            $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep']);
+            $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf'] ?? '');
+            $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone'] ?? '');
+            $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep'] ?? '');
 
             $DadosEndereco = null;
+            $endereco = $doador->endereco;
 
-            if (!is_null($dadosValidados['cep']) && !empty($dadosValidados['cep'])) {
-
+            if (!empty($dadosValidados['cep'])) {
                 $client = new Client([
-                    'timeout' => 10
+                    'timeout' => 10,
+                    'http_errors' => false,
                 ]);
 
+                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
 
-                $response = $client->get("https://brasilapi.com.br/api//{$dadosValidados['cep']}");
+                if ($response->getStatusCode() === 200) {
+                    $DadosEndereco = json_decode((string) $response->getBody(), true);
 
-                if ($response->getStatusCode() !== 200) {
-                    $dadosValidados['endereco_origem'] = 'nao_resolvido';
+                    if (is_array($DadosEndereco) && !empty($DadosEndereco)) {
+                        $dadosValidados['endereco_origem'] = 'api';
+                    }
                 }
-                $DadosEndereco = json_decode($response->getBody(), true);
-
-                $dadosValidados['endereco_origem'] = 'api';
             }
-            $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? ($DadosEndereco['city'] ?? null);
-            $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? ($DadosEndereco['neighborhood'] ?? null);
-            $dadosValidados['uf'] = $dadosValidados['uf'] ?? ($DadosEndereco['state'] ?? null);
-            $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? ($DadosEndereco['street'] ?? null);
 
-            $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
-            $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
+            $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? ($DadosEndereco['city'] ?? ($endereco->cidade ?? null));
+            $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? ($DadosEndereco['neighborhood'] ?? ($endereco->bairro ?? null));
+            $dadosValidados['uf'] = $dadosValidados['uf'] ?? ($DadosEndereco['state'] ?? ($endereco->uf ?? null));
+            $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? ($DadosEndereco['street'] ?? ($endereco->logradouro ?? null));
+            $dadosValidados['numero'] = $dadosValidados['numero'] ?? ($endereco->numero ?? 'Sem número');
+            $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? ($endereco->complemento ?? 'Sem complemento');
 
+            $latitude = $DadosEndereco['location']['coordinates']['latitude'] ?? ($endereco->latitude ?? null);
+            $longitude = $DadosEndereco['location']['coordinates']['longitude'] ?? ($endereco->longitude ?? null);
 
-            if (
-                !empty($dadosValidados['cep']) && !empty($dadosValidados['logradouro']) && !empty($dadosValidados['numero']) && !empty($dadosValidados['complemento']) && !empty($dadosValidados['bairro'])
-                && !empty($dadosValidados['cidade']) && !empty($dadosValidados['uf'])
-            ) {
+            $dadosEnderecoParaSalvar = [
+                'cep' => $dadosValidados['cep'],
+                'logradouro' => $dadosValidados['logradouro'],
+                'numero' => $dadosValidados['numero'],
+                'complemento' => $dadosValidados['complemento'],
+                'bairro' => $dadosValidados['bairro'],
+                'cidade' => $dadosValidados['cidade'],
+                'uf' => $dadosValidados['uf'],
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+            ];
+
+            if ($endereco) {
+                $endereco->update($dadosEnderecoParaSalvar);
+                $dadosValidados['endereco_id'] = $endereco->id;
+            } else {
+                $enderecoNovo = Endereco::create($dadosEnderecoParaSalvar);
+                $dadosValidados['endereco_id'] = $enderecoNovo->id;
+            }
+
+            if (!empty($dadosValidados['cep']) && !empty($dadosValidados['logradouro']) && !empty($dadosValidados['numero']) && !empty($dadosValidados['complemento']) && !empty($dadosValidados['bairro']) && !empty($dadosValidados['cidade']) && !empty($dadosValidados['uf'])) {
                 $dadosValidados['endereco_origem'] = 'manual';
             }
 
-            $doador->update($dadosValidados);
+            if (isset($dadosValidados['endereco_origem'])) {
+                if ($endereco) {
+                    $endereco->update(['endereco_origem' => $dadosValidados['endereco_origem']]);
+                } elseif (isset($enderecoNovo)) {
+                    $enderecoNovo->update(['endereco_origem' => $dadosValidados['endereco_origem']]);
+                }
+            }
 
+            $doador->update([
+                'nome' => $dadosValidados['nome'],
+                'cpf' => $dadosValidados['cpf'],
+                'data_de_nascimento' => $dadosValidados['data_de_nascimento'],
+                'sexo' => $dadosValidados['sexo'],
+                'tipo_sanguineo' => $dadosValidados['tipo_sanguineo'],
+                'telefone' => $dadosValidados['telefone'],
+                'email' => $dadosValidados['email'],
+                'status' => $dadosValidados['status'] ?? $doador->status,
+                'endereco_id' => $dadosValidados['endereco_id'],
+            ]);
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doador atualizado com sucesso'
-
             ], 200);
         } catch (QueryException $e) {
             if (str_contains($e->getMessage(), 'email_UNIQUE')) {
