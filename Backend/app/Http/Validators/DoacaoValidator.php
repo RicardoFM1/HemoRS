@@ -29,7 +29,8 @@ class DoacaoValidator
             'peso' => 'integer',
             'hemoglobina' => 'integer',
             'motivo_da_recusa' => 'max:255',
-            'volume_coletado' => 'integer'
+            'volume_coletado' => 'integer',
+            'data_e_hora_agendada' => 'required'
         ];
     }
 
@@ -45,7 +46,7 @@ class DoacaoValidator
             'status.in' => 'Status fora do escopo: agendada, triagem, cancelada, coletada, recusada',
             'peso.integer' => 'Peso deve ser um número inteiro',
             'hemoglobina.integer' => 'Hemoglobina deve ser um número inteiro',
-
+            'data_e_hora_agendada.required' => 'Data e hora para agendamento é obrigatório'
         ];
     }
 }
