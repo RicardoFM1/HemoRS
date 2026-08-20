@@ -231,7 +231,8 @@ class DoacaoController extends Controller
             try {
 
                 $client = new Client([
-                    'timeout' => 10
+                    'timeout' => 10,
+                    'http_errors' => false
                 ]);
             } catch (Timeout) {
                 return response()->json([
@@ -243,7 +244,7 @@ class DoacaoController extends Controller
                 $ano = date('Y');
                 $response = $client->get("https://brasilapi.com.br/api/feriados/v1/{$ano}");
 
-                
+
                 $dados = json_decode((string) $response->getBody(), true);
                 $usuario = $request->auth;
 

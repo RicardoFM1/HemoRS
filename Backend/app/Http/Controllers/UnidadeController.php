@@ -8,55 +8,20 @@ use App\Models\Unidade;
 use GuzzleHttp\Client;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Laravel\Lumen\Routing\Controller;
 
 class UnidadeController extends Controller
 {
-    private function buscarEnderecoPorCep(string $cep): ?array
-    {
-        $cepLimpo = preg_replace('/\D/', '', $cep) ?? '';
-
-        if ($cepLimpo === '') {
-            return null;
-        }
-
-        $cacheKey = 'cep_brasilapi_' . $cepLimpo;
-
-        return Cache::remember($cacheKey, 60 * 60 * 24, function () use ($cepLimpo) {
-            $client = new Client([
-                'timeout' => 10,
-                'http_errors' => false,
-            ]);
-
-            try {
-                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cepLimpo}");
-
-                if ($response->getStatusCode() !== 200) {
-                    return null;
-                }
-
-                $dados = json_decode((string) $response->getBody(), true);
-
-                return is_array($dados) && !empty($dados) ? $dados : null;
-            } catch (\Throwable $e) {
-                return null;
-            }
-        });
-    }
-
     // Função de listagem de unidades junto com a doação
     public function listarUnidades()
     {
         $unidades = Unidade::with('doacao')->get();
-
 
         return response()->json([
             'sucesso' => true,
             'dados' => $unidades
         ], 200);
     }
-
 
     // Função para buscar a unidade específica
     public function buscarUnidade($unidadeId)
@@ -76,18 +41,16 @@ class UnidadeController extends Controller
         ]);
     }
 
-
-    // Criar uma unidade, sendo validada
     private function haversine(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
-        $r = 6371; // raio da Terra em km
+        $r = 6371;
 
         $dLat = deg2rad($lat2 - $lat1);
         $dLon = deg2rad($lon2 - $lon1);
 
         $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
+            cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+            sin($dLon / 2) * sin($dLon / 2);
 
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
@@ -99,60 +62,87 @@ class UnidadeController extends Controller
         try {
             $dadosValidados = $validador->validate($request);
 
-            $cep = preg_replace('/\D/', '', $dadosValidados['cep'] ?? '');
+            $cep = preg_replace('/\D/', '', $dadosValidados['cep']);
+            $dadosEndereco = [];
 
-            $dadosEndereco = null;
+            if (!empty($cep) && strlen($cep) === 8) {
+                $client = new Client([
+                    'timeout' => 10,
+                    'http_errors' => false,
+                ]);
 
-            if (!empty($cep)) {
-                $dadosEndereco = $this->buscarEnderecoPorCep($cep);
-            }
+                try {
+                    $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$cep}");
 
-            $logradouro = $dadosValidados['logradouro'] ?? ($dadosEndereco['street'] ?? null);
-            $bairro = $dadosValidados['bairro'] ?? ($dadosEndereco['neighborhood'] ?? null);
-            $cidade = $dadosValidados['cidade'] ?? ($dadosEndereco['city'] ?? null);
-            $uf = $dadosValidados['uf'] ?? ($dadosEndereco['state'] ?? null);
+                    if ($response->getStatusCode() === 200) {
+                        $dadosEndereco = json_decode((string) $response->getBody(), true) ?? [];
+                    }
+                } catch (\Throwable $e) {
+                    return response()->json([
+                        'sucesso' => false,
+                        'mensagem' => 'Erro ao consultar o CEP'
+                    ], 422);
+                }
+            }   
+          
 
-            $latitude = $dadosValidados['latitude'] ?? ($dadosEndereco['location']['coordinates']['latitude'] ?? null);
+            // Usa array_filter/filled para garantir que strings vazias não sobrescrevam a API
+            $logradouro = !empty($dadosValidados['logradouro']) ? $dadosValidados['logradouro'] : ($dadosEndereco['street'] ?? null);
+            $bairro     = !empty($dadosValidados['bairro'])     ? $dadosValidados['bairro']     : ($dadosEndereco['neighborhood'] ?? null);
+            $cidade     = !empty($dadosValidados['cidade'])     ? $dadosValidados['cidade']     : ($dadosEndereco['city'] ?? null);
+            $uf         = !empty($dadosValidados['uf'])         ? $dadosValidados['uf']         : ($dadosEndereco['state'] ?? null);
+
+            $latitude  = $dadosValidados['latitude']  ?? ($dadosEndereco['location']['coordinates']['latitude'] ?? null);
             $longitude = $dadosValidados['longitude'] ?? ($dadosEndereco['location']['coordinates']['longitude'] ?? null);
 
             $endereco = Endereco::create([
-                'cep' => $cep,
-                'logradouro' => $logradouro,
-                'numero' => $dadosValidados['numero'] ?? 'Sem número',
-                'complemento' => $dadosValidados['complemento'] ?? 'Sem complemento',
-                'bairro' => $bairro,
-                'cidade' => $cidade,
-                'uf' => $uf,
-                'latitude' => $latitude,
-                'longitude' => $longitude,
+                'cep'         => $cep,
+                'logradouro'  => $logradouro,
+                'numero'      => !empty($dadosValidados['numero']) ? $dadosValidados['numero'] : 'Sem número',
+                'complemento' => !empty($dadosValidados['complemento']) ? $dadosValidados['complemento'] : 'Sem complemento',
+                'bairro'      => $bairro,
+                'cidade'      => $cidade,
+                'uf'          => $uf,
+                'latitude'    => $latitude,
+                'longitude'   => $longitude,
             ]);
 
             $unidade = Unidade::create([
-                'nome' => $dadosValidados['nome'],
-                'endereco_id' => $endereco->id,
+                'nome'              => $dadosValidados['nome'],
+                'endereco_id'       => $endereco->id,
                 'capacidade_diaria' => $dadosValidados['capacidade_diaria'] ?? 0,
-                'latitude' => $latitude,
-                'longitude' => $longitude,
+                'latitude'          => $latitude,
+                'longitude'         => $longitude,
             ]);
 
             return response()->json([
-                'sucesso' => true,
+                'sucesso'  => true,
                 'mensagem' => 'Unidade criada com sucesso',
-                'dados' => $unidade->load('endereco'),
+                'dados'    => $unidade->load('endereco'),
             ], 201);
         } catch (QueryException $e) {
             return response()->json([
-                'sucesso' => false,
+                'sucesso'  => false,
                 'mensagem' => 'Erro ao criar unidade',
-                'erro' => $e->getMessage(),
+                'erro'     => $e->getMessage(),
             ], 500);
         }
     }
 
     public function unidadeMaisProxima(Request $request)
     {
-        $latitudeUsuario = (float) $request->input('latitude');
-        $longitudeUsuario = (float) $request->input('longitude');
+        $latitudeUsuario = $request->input('latitude');
+        $longitudeUsuario = $request->input('longitude');
+
+        if ($latitudeUsuario === null || $longitudeUsuario === null) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Latitude e longitude do usuário são obrigatórias.'
+            ], 400);
+        }
+
+        $latitudeUsuario = (float) $latitudeUsuario;
+        $longitudeUsuario = (float) $longitudeUsuario;
 
         $unidades = Unidade::with('endereco')->get();
 
@@ -186,18 +176,23 @@ class UnidadeController extends Controller
             }
         }
 
+        if ($maisProxima === null) {
+            return response()->json([
+                'sucesso' => false,
+                'mensagem' => 'Nenhuma unidade com coordenadas válidas foi encontrada.'
+            ], 404);
+        }
+
         return response()->json([
             'sucesso' => true,
             'dados' => $maisProxima
         ], 200);
     }
 
-
     // Atualizar uma unidade com o id dela e validando
     public function atualizarUnidade(Request $request, UnidadeValidator $validador, int $unidadeId)
     {
         try {
-
             $unidade = Unidade::find($unidadeId);
 
             if (is_null($unidade)) {
@@ -208,19 +203,13 @@ class UnidadeController extends Controller
             }
 
             $dadosValidados = $validador->validate($request);
-
-
-
             $unidade->update($dadosValidados);
-
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Unidade atualizada com sucesso'
             ], 200);
         } catch (QueryException $e) {
-
-
             return response()->json([
                 'sucesso' => false,
                 'mensagem' => 'Erro ao atualizar unidade',
@@ -228,7 +217,6 @@ class UnidadeController extends Controller
         }
     }
 
-    // Função para deletar unidade pelo id
     public function deletarUnidade($unidadeId)
     {
         try {
@@ -243,7 +231,6 @@ class UnidadeController extends Controller
 
             $unidade->delete();
 
-
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Unidade deletada com sucesso'
@@ -256,10 +243,8 @@ class UnidadeController extends Controller
         }
     }
 
-    public function briefing (Request $request) {
+    public function briefing(Request $request)
+    {
         $data = $request->query('data', '');
-
-
     }
-
 }
