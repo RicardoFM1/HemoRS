@@ -136,6 +136,9 @@ class DoadorController extends Controller
             $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? $DadosEndereco['neighborhood'];
             $dadosValidados['uf'] = $dadosValidados['uf'] ?? $DadosEndereco['state'];
             $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? $DadosEndereco['street'];
+            $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
+            $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
+
 
             if(!is_null($dadosValidados['cep']) && !is_null($dadosValidados['logradouro']) && !is_null($dadosValidados['numero']) && !is_null($dadosValidados['complemento']) && !is_null($dadosValidados['bairro']) 
                 && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])){
