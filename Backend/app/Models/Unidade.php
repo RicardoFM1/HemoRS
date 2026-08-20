@@ -15,7 +15,9 @@ class Unidade extends Model
     public $fillable = [
         'nome',
         'cidade',
-        'capacidade_diaria'
+        'capacidade_diaria',
+        'longitude',
+        'latitude'
        
     ];
 

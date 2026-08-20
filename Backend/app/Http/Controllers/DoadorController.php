@@ -7,6 +7,7 @@ use App\Models\Doacao;
 use App\Models\Doador;
 use Carbon\Carbon;
 use Firebase\JWT\JWT;
+use GuzzleHttp\Client;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -116,8 +117,23 @@ class DoadorController extends Controller
                     'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
                 ], 409);
             }
+            $DadosEndereco = null;
+
+            if (!is_null($dadosValidados['cep']) && !empty($dadosValidados['cep'])) {
+
+                $client = new Client([
+                    'timeout' => 10
+                ]);
 
 
+                $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
+                $DadosEndereco = json_decode($response->getBody(), true);
+                $dadosValidados['endereco_origem'] = 'api';
+            }
+            $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? $DadosEndereco['city'];
+            $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? $DadosEndereco['neighborhood'];
+            $dadosValidados['uf'] = $dadosValidados['uf'] ?? $DadosEndereco['state'];
+            $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? $DadosEndereco['street'];
 
             $doador = Doador::create($dadosValidados);
 
@@ -215,7 +231,7 @@ class DoadorController extends Controller
 
 
             $doacao = Doacao::where('doador_id', $doador->id);
-            
+
             // Se o doador tiver uma doação, da erro e atualiza para inativo ao invés de deletar.
             if ($doacao) {
                 $doador->update(['status' => 'inativo']);

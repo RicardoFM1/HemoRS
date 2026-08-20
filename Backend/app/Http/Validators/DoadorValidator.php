@@ -29,7 +29,16 @@ class DoadorValidator
             'telefone' => 'required|max:20',
             'data_de_nascimento' => 'required',
             'email' => 'required|email|max:255',
-            'status' => 'required|in:ativo,inativo'
+            'status' => 'required|in:ativo,inativo',
+            'cep' => 'required|max:8',
+            'logradouro' => 'max:120',
+            'numero' => 'max:15',
+            'complemento' => 'max:60',
+            'bairro' => 'max:80',
+            'cidade' => 'max:80',
+            'uf' => 'max:2|in:AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO',
+            'endereco_origem' => 'in:api,cache,manual,nao_resolvido'
+
         ];
     }
 
@@ -48,7 +57,16 @@ class DoadorValidator
             'tipo_sanguineo.in' => 'Tipo sanguíneo fora do escopo: A+, A-, B+, B-, AB+, AB-, O+, O-',
             'telefone' => 'Telefone é obrigatório',
             'status.required' => 'Status é obrigatório',
-            'status.in' => 'Status fora do escopo: ativo ou inativo'
+            'status.in' => 'Status fora do escopo: ativo ou inativo',
+            'cep.max' => 'max de caractéres:8',
+            'logradouro.max' => 'max de caractéres:120',
+            'numero.max' => 'max de caractéres:15',
+            'complemento.max' => 'max de caractéres:60',
+            'bairro.max' => 'max de caractéres:80',
+            'cidade.max' => 'max de caractéres:80',
+            'uf.max' => 'max de caractéres:2',
+            'uf.in' => 'UF fora do escopo: AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO',
+            'endereco_origem.in' => 'Endereço de origem fora do escopo: api,cache,manual,nao_resolvido'
         ];
     }
 }
