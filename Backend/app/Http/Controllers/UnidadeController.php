@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Validators\UnidadeValidator;
+use App\Models\Doador;
 use App\Models\Endereco;
 use App\Models\Unidade;
 use GuzzleHttp\Client;
@@ -83,8 +84,8 @@ class UnidadeController extends Controller
                         'mensagem' => 'Erro ao consultar o CEP'
                     ], 422);
                 }
-            }   
-          
+            }
+
 
             // Usa array_filter/filled para garantir que strings vazias não sobrescrevam a API
             $logradouro = !empty($dadosValidados['logradouro']) ? $dadosValidados['logradouro'] : ($dadosEndereco['street'] ?? null);
@@ -130,64 +131,78 @@ class UnidadeController extends Controller
     }
 
     public function unidadeMaisProxima(Request $request)
-    {
-        $latitudeUsuario = $request->input('latitude');
-        $longitudeUsuario = $request->input('longitude');
-
-        if ($latitudeUsuario === null || $longitudeUsuario === null) {
-            return response()->json([
-                'sucesso' => false,
-                'mensagem' => 'Latitude e longitude do usuário são obrigatórias.'
-            ], 400);
-        }
-
-        $latitudeUsuario = (float) $latitudeUsuario;
-        $longitudeUsuario = (float) $longitudeUsuario;
-
-        $unidades = Unidade::with('endereco')->get();
-
-        $maisProxima = null;
-        $menorDistancia = INF;
-
-        foreach ($unidades as $unidade) {
-            $latUnidade = (float) ($unidade->latitude ?? $unidade->endereco->latitude ?? 0);
-            $lonUnidade = (float) ($unidade->longitude ?? $unidade->endereco->longitude ?? 0);
-
-            if ($latUnidade == 0 || $lonUnidade == 0) {
-                continue;
-            }
-
-            $distancia = $this->haversine(
-                $latitudeUsuario,
-                $longitudeUsuario,
-                $latUnidade,
-                $lonUnidade
-            );
-
-            if ($distancia < $menorDistancia) {
-                $menorDistancia = $distancia;
-                $maisProxima = [
-                    'unidade_id' => $unidade->id,
-                    'nome' => $unidade->nome,
-                    'latitude' => $latUnidade,
-                    'longitude' => $lonUnidade,
-                    'distancia_km' => round($distancia, 2),
-                ];
-            }
-        }
-
-        if ($maisProxima === null) {
-            return response()->json([
-                'sucesso' => false,
-                'mensagem' => 'Nenhuma unidade com coordenadas válidas foi encontrada.'
-            ], 404);
-        }
-
+{
+    $doadorId = $request->input('doador_id');
+    if ($doadorId === null) {
         return response()->json([
-            'sucesso' => true,
-            'dados' => $maisProxima
-        ], 200);
+            'sucesso' => false,
+            'mensagem' => 'Referência do doador é obrigatório.'
+        ], 400);
     }
+
+    $doador = Doador::find($doadorId);
+    if (empty($doador)) {
+        return response()->json([
+            'sucesso' => false,
+            'mensagem' => 'Doador não encontrado.'
+        ], 404);
+    }
+
+    $endereco = Endereco::find($doador->endereco_id);
+    if (!$endereco || !$endereco->latitude || !$endereco->longitude) {
+        return response()->json([
+            'sucesso' => false,
+            'mensagem' => 'Endereço do doador não possui coordenadas válidas.'
+        ], 400);
+    }
+
+    $latitudeUsuario = (float) $endereco->latitude;
+    $longitudeUsuario = (float) $endereco->longitude;
+
+    $unidades = Unidade::with('endereco')->get();
+    $unidadesProximas = [];
+
+    foreach ($unidades as $unidade) {
+        $latUnidade = (float) ($unidade->latitude ?? $unidade->endereco->latitude ?? 0);
+        $lonUnidade = (float) ($unidade->longitude ?? $unidade->endereco->longitude ?? 0);
+
+        if ($latUnidade == 0 || $lonUnidade == 0) {
+            continue;
+        }
+
+        $distancia = $this->haversine(
+            $latitudeUsuario,
+            $longitudeUsuario,
+            $latUnidade,
+            $lonUnidade
+        );
+
+        $unidadesProximas[] = [
+            'unidade_id'   => $unidade->id,
+            'nome'         => $unidade->nome,
+            'latitude'     => $latUnidade,
+            'longitude'    => $lonUnidade,
+            'distancia_km' => round($distancia, 2),
+        ];
+    }
+
+    if (empty($unidadesProximas)) {
+        return response()->json([
+            'sucesso' => false,
+            'mensagem' => 'Nenhuma unidade com coordenadas válidas foi encontrada.'
+        ], 404);
+    }
+
+    // Ordena do menor para o maior de acordo com a distância em km
+    usort($unidadesProximas, function ($a, $b) {
+        return $a['distancia_km'] <=> $b['distancia_km'];
+    });
+
+    return response()->json([
+        'sucesso' => true,
+        'dados'   => $unidadesProximas
+    ], 200);
+}
 
     // Atualizar uma unidade com o id dela e validando
     public function atualizarUnidade(Request $request, UnidadeValidator $validador, int $unidadeId)
