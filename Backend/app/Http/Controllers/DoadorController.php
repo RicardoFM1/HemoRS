@@ -128,8 +128,11 @@ class DoadorController extends Controller
 
 
                 $response = $client->get("https://brasilapi.com.br/api/cep/v2/{$dadosValidados['cep']}");
+                $status = $response->getStatusCode();
+
+
                 $DadosEndereco = json_decode($response->getBody(), true);
-                 
+
                 $dadosValidados['endereco_origem'] = 'api';
             }
             $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? $DadosEndereco['city'];
@@ -140,9 +143,17 @@ class DoadorController extends Controller
             $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
 
 
-            if(!is_null($dadosValidados['cep']) && !is_null($dadosValidados['logradouro']) && !is_null($dadosValidados['numero']) && !is_null($dadosValidados['complemento']) && !is_null($dadosValidados['bairro']) 
-                && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])){
+            if (
+                !is_null($dadosValidados['cep']) && !is_null($dadosValidados['logradouro']) && !is_null($dadosValidados['numero']) && !is_null($dadosValidados['complemento']) && !is_null($dadosValidados['bairro'])
+                && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])
+            ) {
                 $dadosValidados['endereco_origem'] = 'manual';
+            }
+
+            if (
+                is_null($DadosEndereco['cep']) && is_null($DadosEndereco['city']) && is_null($DadosEndereco['state']) && is_null($DadosEndereco['neighborhood']) && is_null($DadosEndereco['street'])
+            ) {
+                $dadosValidados['endereco_origem'] = 'nao_resolvido';
             }
 
 
@@ -197,6 +208,41 @@ class DoadorController extends Controller
 
             $dadosValidados['cpf'] = preg_replace('/\D/', '', $dadosValidados['cpf']);
             $dadosValidados['telefone'] = preg_replace('/\D/', '', $dadosValidados['telefone']);
+            $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep']);
+
+            $DadosEndereco = null;
+
+            if (!is_null($dadosValidados['cep']) && !empty($dadosValidados['cep'])) {
+
+                $client = new Client([
+                    'timeout' => 10
+                ]);
+
+
+                $response = $client->get("https://brasilapi.com.br/api//{$dadosValidados['cep']}");
+
+                if($response->getStatusCode() !== 200){
+                    $dadosValidados['endereco_origem'] = 'nao_resolvido';
+                }
+                $DadosEndereco = json_decode($response->getBody(), true);
+
+                $dadosValidados['endereco_origem'] = 'api';
+            }
+            $dadosValidados['cidade'] = $dadosValidados['cidade'] ?? ($DadosEndereco['city'] ?? null);
+            $dadosValidados['bairro'] = $dadosValidados['bairro'] ?? ($DadosEndereco['neighborhood'] ?? null);
+            $dadosValidados['uf'] = $dadosValidados['uf'] ?? ($DadosEndereco['state'] ?? null);
+            $dadosValidados['logradouro'] = $dadosValidados['logradouro'] ?? ($DadosEndereco['street'] ?? null);
+
+            $dadosValidados['numero'] = $dadosValidados['numero'] ?? 'Sem número';
+            $dadosValidados['complemento'] = $dadosValidados['complemento'] ?? 'Sem complemento';
+
+
+            if (
+                !empty($dadosValidados['cep']) && !empty($dadosValidados['logradouro']) && !empty($dadosValidados['numero']) && !empty($dadosValidados['complemento']) && !empty($dadosValidados['bairro'])
+                && !empty($dadosValidados['cidade']) && !empty($dadosValidados['uf'])
+            ) {
+                $dadosValidados['endereco_origem'] = 'manual';
+            }
 
             $doador->update($dadosValidados);
 
