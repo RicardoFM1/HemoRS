@@ -231,33 +231,32 @@ class DoacaoController extends Controller
             $response = $client->get("https://brasilapi.com.br/api/feriados/v1/{$ano}");
             
             $dados = json_decode((string) $response->getBody(), true);
-            $data = date('Y-m-d');
             $usuario = $request->auth;
 
             foreach($dados as $dado){
                 $data = Carbon::parse($dadosValidados['data_e_hora_agendada'])->format('Y-m-d');
+                $mesEDia = Carbon::parse($data)->format('d/m');
                 if(Carbon::parse($dado['date'])->eq($data)){
                     return response()->json([
                         'sucesso' => false,
-                        'mensagem' => "Data agendada é um feriado de {$dado['name']}"
-                    ], 409);
+                        'mensagem' => "{$mesEDia} é dia de {$dado['name']}"
+                    ], 422);
                 }
             }
-            // $doacao = Doacao::create($dadosValidados);
-            // Doacao_Historico::create([
-              //  'doacao_id' => $doacao->id,
-               // 'status_de_origem' => 'Agendamento de doação',
-               // 'status_de_destino' => 'Triagem de doação',
-              //  'usuario_id' => $usuario['id'],
-               // 'motivo' => 'Agendamento de uma doação de um doador',
-              //  'data_e_hora' => $dadosValidados['data_e_agendado']
-            // ]);
+            $doacao = Doacao::create($dadosValidados);
+            Doacao_Historico::create([
+               'doacao_id' => $doacao->id,
+               'status_de_origem' => 'Agendamento de doação',
+               'status_de_destino' => 'Triagem de doação',
+               'usuario_id' => $usuario['id'],
+               'motivo' => 'Agendamento de uma doação de um doador',
+               'data_e_hora' => $dadosValidados['data_e_agendado']
+            ]);
 
             return response()->json([
                 'sucesso' => true,
                 'mensagem' => 'Doação criada com sucesso',
-                'dados' => $dados
-                //'dados' => $doacao,
+                'dados' => $doacao
 
             ], 201);
         } catch (QueryException $e) {
