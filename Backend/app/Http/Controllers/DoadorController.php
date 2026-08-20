@@ -117,6 +117,7 @@ class DoadorController extends Controller
                     'mensagem' => 'A idade mínima para ser um doador é de: 16 e máxima de: 69. Menor de 16 anos precisa de autorização de um responsável.'
                 ], 409);
             }
+            $dadosValidados['cep'] = preg_replace('/\D/', '', $dadosValidados['cep']);
             $DadosEndereco = null;
 
             if (!is_null($dadosValidados['cep']) && !empty($dadosValidados['cep'])) {
@@ -140,6 +141,7 @@ class DoadorController extends Controller
                 && !is_null($dadosValidados['cidade']) && !is_null($dadosValidados['uf'])){
                 $dadosValidados['endereco_origem'] = 'manual';
             }
+
 
             $doador = Doador::create($dadosValidados);
 
