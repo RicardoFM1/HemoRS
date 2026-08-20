@@ -70,6 +70,7 @@ class UnidadeController extends Controller
 
             if (!empty($cep) && strlen($cep) === 8) {
                 $client = new Client([
+                    'base_uri' => 'httpbin/delay',
                     'timeout' => 10,
                     'http_errors' => false,
                 ]);
